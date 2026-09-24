@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#131c15">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>龙卷风大作战 3D 🌪️</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+<script>window.__errors=[];window.onerror=function(m,s,l){__errors.push(m+'@'+l);return false;};</script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none}
+  html,body{width:100%;height:100%;overflow:hidden;position:fixed;inset:0;touch-action:none;overscroll-behavior:none;
+    font-family:system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#131c15;color:#f2f5f0}
+
+  canvas.game3d{position:fixed;inset:0;display:block;touch-action:none}
+  canvas#mm{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 14px);z-index:4;border-radius:16px;
+    border:1px solid rgba(255,255,255,.18);box-shadow:0 8px 24px rgba(0,0,0,.45)}
+
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top) + 10px) 12px 0;
+    display:flex;gap:8px;align-items:stretch;pointer-events:none;z-index:5}
+  .panel{background:linear-gradient(165deg,rgba(24,32,26,.72),rgba(10,15,11,.78));
+    border:1px solid rgba(255,255,255,.13);
+    backdrop-filter:blur(12px) saturate(1.25);-webkit-backdrop-filter:blur(12px) saturate(1.25);
+    color:#fff;border-radius:16px;padding:9px 14px;font-weight:700;font-size:14px;
+    box-shadow:0 6px 18px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.10)}
+  #scorep{display:flex;flex-direction:column;justify-content:center;line-height:1.15;white-space:nowrap}
+  #scorep b{font-size:20px;font-weight:900;letter-spacing:.5px;
+    text-shadow:0 2px 6px rgba(0,0,0,.5);color:#ffd75e}
+  #scorep .sub{font-weight:500;font-size:11px;opacity:.75;margin-top:2px}
+  #scorep .sub b{font-size:12px;color:#fff}
+  .grow{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
+  #lvname{font-size:12.5px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    letter-spacing:1px;opacity:.95}
+  #bar{height:9px;background:rgba(255,255,255,.14);border-radius:5px;overflow:hidden;
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.4)}
+  #fill{display:block;height:100%;width:0%;border-radius:5px;
+    background:linear-gradient(90deg,#ffd75e,#ff9d3c,#ffd75e);background-size:200% 100%;
+    animation:shine 2.4s linear infinite;transition:width .3s}
+  @keyframes shine{to{background-position:-200% 0}}
+  .cbtn{pointer-events:auto;width:44px;height:44px;flex:0 0 44px;border:1px solid rgba(255,255,255,.13);border-radius:15px;
+    background:linear-gradient(165deg,rgba(24,32,26,.72),rgba(10,15,11,.78));
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    color:#fff;font-size:18px;line-height:1;cursor:pointer;
+    box-shadow:0 6px 18px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.10)}
+  .cbtn:active{transform:scale(.9);filter:brightness(1.3)}
+
+  #hint{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 158px);transform:translateX(-50%);
+    background:rgba(10,15,11,.82);border:1px solid rgba(255,215,94,.3);color:#ffe9b0;
+    font-size:13.5px;font-weight:600;padding:10px 18px;border-radius:999px;
+    opacity:0;transition:opacity .4s;pointer-events:none;z-index:6;white-space:nowrap;max-width:92vw;
+    box-shadow:0 8px 24px rgba(0,0,0,.45);backdrop-filter:blur(8px)}
+  #banner{position:fixed;top:24%;left:50%;transform:translate(-50%,-50%) scale(.5);opacity:0;
+    font-size:30px;font-weight:900;letter-spacing:3px;color:#ffe9b0;
+    text-shadow:0 2px 0 #7a4a00,0 6px 22px rgba(0,0,0,.65);
+    pointer-events:none;z-index:7;white-space:nowrap}
+  #banner.show{animation:bpop 1.9s ease forwards}
+  @keyframes bpop{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}14%{opacity:1;transform:translate(-50%,-50%) scale(1.14)}
+    22%{transform:translate(-50%,-50%) scale(1)}78%{opacity:1}100%{opacity:0;transform:translate(-50%,-64%) scale(1)}}
+  .ftext{position:fixed;left:0;top:0;color:#fff;font-weight:900;font-size:24px;pointer-events:none;z-index:6;
+    text-shadow:0 2px 0 rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.45);will-change:transform,opacity}
+
+  /* ---------- 覆盖层 ---------- */
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:10;
+    background:radial-gradient(ellipse at 50% 38%,rgba(12,20,15,.42),rgba(5,9,7,.9) 78%)}
+  .overlay.hidden{display:none}
+  #win:not(.hidden) .card{animation:cardin .5s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes cardin{from{transform:scale(.82) translateY(26px);opacity:0}
+    to{transform:scale(1) translateY(0);opacity:1}}
+  #score.bump{animation:bump .3s ease}
+  @keyframes bump{30%{transform:scale(1.28);color:#ffe9a8}}
+  .card{position:relative;width:min(90vw,382px);max-height:92vh;overflow:auto;border-radius:30px;
+    padding:30px 24px 24px;text-align:center;color:#f2f5f0;
+    background:linear-gradient(168deg,rgba(38,50,41,.78),rgba(11,17,13,.92));
+    border:1px solid rgba(255,255,255,.15);
+    box-shadow:0 34px 90px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.14);
+    backdrop-filter:blur(20px) saturate(1.25);-webkit-backdrop-filter:blur(20px) saturate(1.25)}
+  .card::before{content:'';position:absolute;inset:0;border-radius:30px;pointer-events:none;
+    background:linear-gradient(115deg,rgba(255,255,255,.09),transparent 32%,transparent 68%,rgba(255,255,255,.05))}
+  .ticon{font-size:58px;filter:drop-shadow(0 10px 22px rgba(0,0,0,.55))}
+  .card h1{font-size:31px;font-weight:900;letter-spacing:5px;margin:8px 0 2px;
+    background:linear-gradient(180deg,#ffffff,#b9c6ba);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 4px 10px rgba(0,0,0,.55))}
+  .hr{display:flex;align-items:center;gap:12px;margin:10px 0 4px;opacity:.55}
+  .hr::before,.hr::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent)}
+  .hr span{font-size:10px;letter-spacing:5px;font-weight:700;color:#cfe0cf}
+  .tag{font-size:13px;opacity:.85;margin-bottom:16px;letter-spacing:.5px}
+  .how{text-align:left;background:rgba(0,0,0,.30);border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;padding:13px 16px;margin-bottom:18px}
+  .how p{font-size:13.5px;line-height:1.55;margin:6px 0;display:flex;gap:9px;align-items:flex-start}
+  .how p em{font-style:normal;flex:0 0 auto}
+  .bigbtn{display:block;width:100%;border:none;border-radius:18px;padding:15px 0;margin:7px 0;cursor:pointer;
+    font-size:19px;font-weight:900;letter-spacing:6px;color:#4a2b00;position:relative;overflow:hidden;
+    background:linear-gradient(180deg,#ffe27a,#ffa23c);
+    box-shadow:0 10px 26px rgba(255,157,60,.32),inset 0 1px 0 rgba(255,255,255,.65),inset 0 -2px 0 rgba(150,80,0,.35)}
+  .bigbtn::after{content:'';position:absolute;top:0;left:-60%;width:38%;height:100%;
+    background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);
+    animation:sheen 3s infinite}
+  @keyframes sheen{0%{left:-60%}55%{left:130%}100%{left:130%}}
+  .bigbtn:active{transform:translateY(3px) scale(.99);box-shadow:0 4px 12px rgba(255,157,60,.3)}
+  .ghost{background:rgba(255,255,255,.10);color:#e8efe8;box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.14);font-size:15px;font-weight:700;padding:12px 0;letter-spacing:3px}
+  .ghost::after{display:none}
+  #timerbox{position:fixed;top:calc(env(safe-area-inset-top) + 64px);left:50%;transform:translateX(-50%);
+    z-index:6;background:linear-gradient(165deg,rgba(24,32,26,.75),rgba(10,15,11,.8));
+    border:1px solid rgba(255,215,94,.35);color:#ffd75e;border-radius:14px;padding:6px 18px;
+    font-size:20px;font-weight:900;letter-spacing:2px;pointer-events:none;
+    box-shadow:0 8px 22px rgba(0,0,0,.4)}
+  #timerbox.danger{color:#ff6b57;border-color:rgba(255,107,87,.5);animation:pulse .5s infinite alternate}
+  @keyframes pulse{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-50%) scale(1.07)}}
+  #rvpill{position:fixed;top:calc(env(safe-area-inset-top) + 64px);right:12px;z-index:6;
+    background:linear-gradient(165deg,rgba(60,24,20,.75),rgba(30,10,8,.8));
+    border:1px solid rgba(255,106,87,.4);color:#ff8a7a;border-radius:12px;padding:5px 12px;
+    font-size:13px;font-weight:800;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+  .mini{font-size:11px;opacity:.55;margin-top:8px;letter-spacing:.5px}
+  #achv{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-top:12px}
+  .ach{font-size:10.5px;padding:4px 10px;border-radius:999px;letter-spacing:1px;
+    border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);opacity:.45}
+  .ach.on{border-color:rgba(255,215,94,.45);background:rgba(255,215,94,.13);
+    color:#ffd75e;opacity:1;font-weight:700}
+  .badge{display:inline-flex;align-items:center;gap:6px;margin-top:12px;
+    background:rgba(255,215,94,.12);border:1px solid rgba(255,215,94,.34);
+    color:#ffd75e;border-radius:999px;padding:6px 16px;font-size:12px;font-weight:700;letter-spacing:1px}
+  .stats{display:flex;gap:8px;margin:16px 0 10px}
+  .st{flex:1;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.10);
+    border-radius:16px;padding:12px 4px}
+  .st b{display:block;font-size:19px;font-weight:900}
+  .st span{font-size:10.5px;opacity:.7;letter-spacing:1px}
+  .rec{font-size:14px;color:#ffd75e;font-weight:800;margin:2px 0 8px;letter-spacing:2px}
+  .foot{font-size:10px;opacity:.4;margin-top:14px;letter-spacing:2px}
+</style>
+</head>
+<body>
+<div id="iosHint" style="display:none;position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(env(safe-area-inset-bottom) + 18px);z-index:30;width:min(92vw,380px);
+  background:rgba(12,24,16,.92);border:1px solid rgba(255,215,94,.35);border-radius:16px;
+  padding:12px 16px;color:#fff;font-size:13px;line-height:1.6;backdrop-filter:blur(8px)">
+  📱 把游戏装到桌面:iOS Safari 点底部<b style="color:#ffd75e">分享 ⬆️</b> →
+  「添加到主屏幕」,即可全屏像 App 一样玩
+  <div onclick="this.parentNode.remove()" style="position:absolute;top:6px;right:10px;
+   color:rgba(255,255,255,.5);font-size:16px;cursor:pointer">✕</div>
+</div>
+<div id="boot" style="position:fixed;inset:0;z-index:99;background:#131c15;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px">
+  <div style="font-size:54px;animation:bootspin 1.6s linear infinite">🌪️</div>
+  <div style="color:#ffd75e;font-weight:900;letter-spacing:4px;font-size:17px">龙卷风大作战 3D</div>
+  <div style="color:rgba(255,255,255,.45);font-size:12px;letter-spacing:2px">风暴生成中,请稍候…</div>
+</div>
+<style>@keyframes bootspin{to{transform:rotate(360deg)}}</style>
+<canvas id="mm" width="264" height="264" style="width:116px;height:116px"></canvas>
+
+<div id="hud">
+  <div class="panel" id="scorep"><b id="score">0</b><span class="sub">吞噬 <b id="cnt">0</b></span></div>
+  <div class="panel grow">
+    <div id="lvname">LV.1 · 微风小龙卷</div>
+    <div id="bar"><i id="fill"></i></div>
+  </div>
+  <button class="cbtn" id="snd" title="声音">🔊</button>
+  <button class="cbtn" id="rst" title="重新开始">⟳</button>
+</div>
+<div id="hint"></div>
+<div id="banner"></div>
+<div id="timerbox" style="display:none">⏱ 2:00</div>
+<div id="rvpill" style="display:none">🔴 对手 0</div>
+<div id="flash" style="position:fixed;inset:0;background:#eaf2ff;opacity:0;pointer-events:none;z-index:8"></div>
+<div style="position:fixed;inset:0;pointer-events:none;z-index:9;
+ background:radial-gradient(ellipse at center,transparent 52%,rgba(16,22,28,.36) 100%)"></div>
+<div style="position:fixed;inset:0;pointer-events:none;z-index:9;opacity:.045;mix-blend-mode:overlay;
+ background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.85%22 numOctaves=%222%22/></filter><rect width=%22120%22 height=%22120%22 filter=%22url(%23n)%22/></svg>')"></div>
+
+<div id="menu" class="overlay">
+  <div class="card">
+    <div class="ticon">🌪️</div>
+    <h1>龙卷风大作战</h1>
+    <div class="hr"><span>REALISTIC 3D STORM</span></div>
+    <p class="tag">从一缕微风,卷成吞掉整座城市的天灾</p>
+    <div class="how">
+      <p><em>👆</em>按住屏幕拖动,龙卷风跟着手指走</p>
+      <p><em>🌼</em>先吃小花小草石头,越吃越大</p>
+      <p><em>🚗</em>长大后,汽车、房子全都能卷上天</p>
+      <p><em>🏆</em>卷碎市中心的电视塔,就赢啦!</p>
+      <p style="opacity:.55;font-size:11.5px"><em>⌨️</em>电脑上也可以用 WASD / 方向键玩</p>
+    </div>
+    <button class="bigbtn" id="start">开始游戏</button>
+    <button class="bigbtn ghost" id="rush">⏱ 限时挑战 · 2:00</button>
+    <button class="bigbtn ghost" id="night">🌙 夜晚模式</button>
+    <button class="bigbtn ghost" id="endless">♾ 无尽模式</button>
+    <button class="bigbtn ghost" id="snow">❄️ 雪原模式</button>
+    <button class="bigbtn ghost" id="cont" style="display:none">▶ 继续上次</button>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <div class="badge" id="best">🏆 闯关最佳 0</div>
+      <div class="badge" id="bestRush">⏱ 挑战最佳 0</div>
+    </div>
+    <p class="mini" id="statline"></p>
+    <div id="achv"></div>
+    <div id="history"></div>
+    <p class="foot">龙卷风大作战 3D · V3.1.0</p>
+  </div>
+</div>
+
+<div id="shareLayer" class="overlay hidden" style="z-index:20">
+  <div class="card" style="padding:14px">
+    <img id="shareImg" style="width:100%;border-radius:14px" alt="战报">
+    <button class="bigbtn ghost" id="shareClose" style="margin-top:10px">关闭</button>
+  </div>
+</div>
+<div id="win" class="overlay hidden">
+  <div class="card">
+    <div class="ticon">🏆</div>
+    <h1 id="winTitle">城市上天啦</h1>
+    <div class="hr"><span>MISSION COMPLETE</span></div>
+    <div class="stats" id="stats"></div>
+    <p class="rec" id="rec" style="display:none">★ 新纪录 ★</p>
+    <button class="bigbtn" id="again">再玩一次</button>
+    <button class="bigbtn ghost" id="free">继续闲逛</button>
+    <button class="bigbtn ghost" id="share">📥 生成战报卡</button>
+  </div>
+</div>
+
+<script>/*__THREE__*/</script>
+<script>/*__GAME__*/</script>
+</body>
+</html>

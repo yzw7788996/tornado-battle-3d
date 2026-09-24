@@ -1,0 +1,16 @@
+{
+  "name": "龙卷风大作战 3D",
+  "short_name": "龙卷风3D",
+  "description": "从一缕微风,卷成吞掉整座城市的天灾。越吃越大的 3D 龙卷风游戏。",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#131c15",
+  "theme_color": "#2c5d1f",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

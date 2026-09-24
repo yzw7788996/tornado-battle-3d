@@ -1,0 +1,27 @@
+# 调试/临时脚本(开发过程残留)——核心源码 _game3d.js/_shell.html 除外
+_*.py
+_*.js
+!_game3d.js
+!_shell.html
+# 贴图原图与素材缓存(压缩版 textures/*.jpg 保留,是构建依赖)
+textures/*_1k.jpg
+textures/*_raw.jpg
+textures/ph.json
+textures/ph_models.json
+textures/acg_*.csv
+textures/b1.json
+ph.json
+ph_models.json
+acg_fac.csv
+acg_win.csv
+b1.json
+
+# 未使用的预留
+gltf/
+
+# 发布包(由 GitHub Releases 承载更合适)
+*.zip
+
+# 系统
+Thumbs.db
+.DS_Store
