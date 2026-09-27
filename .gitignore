@@ -25,3 +25,6 @@ gltf/
 # 系统
 Thumbs.db
 .DS_Store
+
+# 贴图降分辨率时留下的本地原件备份(4MB,不要进版本库;原件在 git 历史里)
+textures/_orig/

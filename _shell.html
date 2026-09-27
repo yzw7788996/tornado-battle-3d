@@ -17,12 +17,16 @@
     font-family:system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#131c15;color:#f2f5f0}
 
   canvas.game3d{position:fixed;inset:0;display:block;touch-action:none}
-  canvas#mm{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 14px);z-index:4;border-radius:16px;
+  canvas#mm{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 14px);z-index:8;border-radius:16px;
     border:1px solid rgba(255,255,255,.18);box-shadow:0 8px 24px rgba(0,0,0,.45)}
 
   /* ---------- HUD ---------- */
+  /* 层序契约:常驻读数(#hud/#mm/#hint/#tut/#timerbox/#rvpill/#combo)= 8,
+     世界投影的瞬时反馈(.ftext)= 6,庆祝横幅 = 7。
+     实测限时局里飘字压在倒计时读数上:竖屏 8.1% 的采样时间、横屏 81.1%(最坏一帧盖住 60%)——
+     同 z-index 时后挂进 body 的飘字会盖住 HUD,而倒计时是玩家要一直看的数。 */
   #hud{position:fixed;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top) + 10px) 12px 0;
-    display:flex;gap:8px;align-items:stretch;pointer-events:none;z-index:5}
+    display:flex;gap:8px;align-items:stretch;pointer-events:none;z-index:8}
   .panel{background:linear-gradient(165deg,rgba(24,32,26,.72),rgba(10,15,11,.78));
     border:1px solid rgba(255,255,255,.13);
     backdrop-filter:blur(12px) saturate(1.25);-webkit-backdrop-filter:blur(12px) saturate(1.25);
@@ -42,35 +46,67 @@
     background:linear-gradient(90deg,#ffd75e,#ff9d3c,#ffd75e);background-size:200% 100%;
     animation:shine 2.4s linear infinite;transition:width .3s}
   @keyframes shine{to{background-position:-200% 0}}
+  /* 这行现在带"还差 N 分", nowrap 会被省略号吃掉尾巴(实测 165~182px 挤进 162px 的盒子)——
+     让它折两行:数字是本轮要传达的信息,不能被截掉。HUD 高度因此 +~13px,由 verify17 Y6 盯着。 */
+  #nextlv{font-size:10.5px;opacity:.62;margin-top:4px;letter-spacing:.4px;font-weight:500;
+    white-space:normal;line-height:1.25;overflow:hidden}
+  /* 折行只许落在片段之间:'还差 N 分'、'解锁:'、物件名各是一整块,从中间断开就读不出来了
+     (320px 手机上盒子只有 88px,实测断点落在「下一级」/「解锁:大楼」这种词中间)。
+     nb 只挡块内的断点,块与块之间照常折 —— 整行 nowrap 会被上面那条 overflow:hidden 切掉尾巴。 */
+  #nextlv .nb{white-space:nowrap}
   .cbtn{pointer-events:auto;width:44px;height:44px;flex:0 0 44px;border:1px solid rgba(255,255,255,.13);border-radius:15px;
     background:linear-gradient(165deg,rgba(24,32,26,.72),rgba(10,15,11,.78));
     backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
     color:#fff;font-size:18px;line-height:1;cursor:pointer;
     box-shadow:0 6px 18px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.10)}
   .cbtn:active{transform:scale(.9);filter:brightness(1.3)}
+  #hud.off,#mm.off,#timerbox.off,#rvpill.off{opacity:0;pointer-events:none}
+  #hud,#mm{transition:opacity .3s}
 
   #hint{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 158px);transform:translateX(-50%);
     background:rgba(10,15,11,.82);border:1px solid rgba(255,215,94,.3);color:#ffe9b0;
     font-size:13.5px;font-weight:600;padding:10px 18px;border-radius:999px;
-    opacity:0;transition:opacity .4s;pointer-events:none;z-index:6;white-space:nowrap;max-width:92vw;
+    opacity:0;transition:opacity .4s;pointer-events:none;z-index:8;white-space:nowrap;max-width:92vw;
     box-shadow:0 8px 24px rgba(0,0,0,.45);backdrop-filter:blur(8px)}
-  #banner{position:fixed;top:24%;left:50%;transform:translate(-50%,-50%) scale(.5);opacity:0;
+  #tut{position:fixed;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:9px;
+    bottom:calc(env(safe-area-inset-bottom) + 212px);z-index:8;pointer-events:none;
+    background:linear-gradient(165deg,rgba(18,28,20,.86),rgba(8,14,9,.9));
+    border:1px solid rgba(126,220,160,.35);border-radius:999px;padding:9px 15px;
+    color:#dff3e2;font-size:13.5px;font-weight:700;white-space:nowrap;max-width:92vw;
+    box-shadow:0 8px 24px rgba(0,0,0,.45);backdrop-filter:blur(8px)}
+  #tut.on{display:flex;animation:cardin .4s cubic-bezier(.2,1.4,.4,1)}
+  #tut i{font-style:normal;flex:0 0 auto;width:21px;height:21px;border-radius:50%;display:grid;
+    place-items:center;background:rgba(126,220,160,.18);color:#8fe0a8;font-size:11px;font-weight:900}
+  #tut.done{border-color:rgba(255,215,94,.5);color:#ffe9b0}
+  #tut.done i{background:rgba(255,215,94,.2);color:#ffd75e}
+  /* 横屏只有 390px 高:引导卡(原 bottom:212)会正好压在横幅那条新车道上。把引导卡挪到小地图上方那条带,
+     两条消息各有各的位置,谁也不用盖谁。竖屏/桌面不受这条影响。 */
+  @media (max-height:520px){#tut{bottom:calc(env(safe-area-inset-bottom) + 96px)}}
+  /* 横幅的车道:矮视口(横屏 390 高)下 24% 正好压在第二排那一行倒计时上,所以取
+     "24% 与 HUD 之下"的较大者。这条 = HUD 实高 + 第二排间隙 6 + 第二排高 ~40 + 间隙 8 + 横幅半高 ~18,
+     取整到 +72(先按 +64 算过,实测还差 3px 贴到倒计时)。高视口仍是原来的 24%,观感不变。 */
+  #banner{position:fixed;top:max(24%,calc(var(--hudh,78px) + 72px));left:50%;transform:translate(-50%,-50%) scale(.5);opacity:0;
     font-size:30px;font-weight:900;letter-spacing:3px;color:#ffe9b0;
-    text-shadow:0 2px 0 #7a4a00,0 6px 22px rgba(0,0,0,.65);
+    text-shadow:2px 0 0 rgba(0,0,0,.92),-2px 0 0 rgba(0,0,0,.92),0 2px 0 rgba(0,0,0,.92),0 -2px 0 rgba(0,0,0,.92),
+      1.5px 1.5px 0 rgba(0,0,0,.92),-1.5px 1.5px 0 rgba(0,0,0,.92),1.5px -1.5px 0 rgba(0,0,0,.92),-1.5px -1.5px 0 rgba(0,0,0,.92),
+      0 3px 0 #6b3f00;
     pointer-events:none;z-index:7;white-space:nowrap}
   #banner.show{animation:bpop 1.9s ease forwards}
   @keyframes bpop{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}14%{opacity:1;transform:translate(-50%,-50%) scale(1.14)}
     22%{transform:translate(-50%,-50%) scale(1)}78%{opacity:1}100%{opacity:0;transform:translate(-50%,-64%) scale(1)}}
   .ftext{position:fixed;left:0;top:0;color:#fff;font-weight:900;font-size:24px;pointer-events:none;z-index:6;
-    text-shadow:0 2px 0 rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.45);will-change:transform,opacity}
+    text-shadow:1.5px 0 0 rgba(0,0,0,.92),-1.5px 0 0 rgba(0,0,0,.92),0 1.5px 0 rgba(0,0,0,.92),0 -1.5px 0 rgba(0,0,0,.92),
+      1px 1px 0 rgba(0,0,0,.92),-1px 1px 0 rgba(0,0,0,.92),1px -1px 0 rgba(0,0,0,.92),-1px -1px 0 rgba(0,0,0,.92);will-change:transform,opacity}
 
   /* ---------- 覆盖层 ---------- */
   .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:10;
     background:radial-gradient(ellipse at 50% 38%,rgba(12,20,15,.42),rgba(5,9,7,.9) 78%)}
   .overlay.hidden{display:none}
   #win:not(.hidden) .card{animation:cardin .5s cubic-bezier(.2,1.4,.4,1)}
-  @keyframes cardin{from{transform:scale(.82) translateY(26px);opacity:0}
-    to{transform:scale(1) translateY(0);opacity:1}}
+  /* 入场只用位移+淡入:缩放会把卡里所有按钮在动画途中压到 44px 以下(0.82×48=39),
+     命中区不能依赖"等人静止了再合规"。贝塞尔的过冲仍在位移上,弹手感不丢。 */
+  @keyframes cardin{from{transform:translateY(26px);opacity:0}
+    to{transform:translateY(0);opacity:1}}
   #score.bump{animation:bump .3s ease}
   @keyframes bump{30%{transform:scale(1.28);color:#ffe9a8}}
   .card{position:relative;width:min(90vw,382px);max-height:92vh;overflow:auto;border-radius:30px;
@@ -81,6 +117,12 @@
     backdrop-filter:blur(20px) saturate(1.25);-webkit-backdrop-filter:blur(20px) saturate(1.25)}
   .card::before{content:'';position:absolute;inset:0;border-radius:30px;pointer-events:none;
     background:linear-gradient(115deg,rgba(255,255,255,.09),transparent 32%,transparent 68%,rgba(255,255,255,.05))}
+  /* 战报卡浮层:图必须给按钮让位。实测 844×390 里 img 按自然比例占满 493px 高,
+     把唯一的「关闭」推到视口外 147px(scrollHeight 589 / clientHeight 357),
+     而这条 overflow:auto 上没有任何"下面还能滚"的线索 —— scrolly 那套只挂在 #menu 的卡片上。 */
+  #shareLayer .card{display:flex;flex-direction:column}
+  #shareImg{flex:0 1 auto;min-height:0;object-fit:contain}
+  #saveCard{color:#4a2b00;text-decoration:none}
   .ticon{font-size:58px;filter:drop-shadow(0 10px 22px rgba(0,0,0,.55))}
   .card h1{font-size:31px;font-weight:900;letter-spacing:5px;margin:8px 0 2px;
     background:linear-gradient(180deg,#ffffff,#b9c6ba);-webkit-background-clip:text;background-clip:text;color:transparent;
@@ -93,6 +135,20 @@
     border-radius:18px;padding:13px 16px;margin-bottom:18px}
   .how p{font-size:13.5px;line-height:1.55;margin:6px 0;display:flex;gap:9px;align-items:flex-start}
   .how p em{font-style:normal;flex:0 0 auto}
+  /* 短视口下菜单要重新"不滚也能玩":实测 360x740 开局就溢出 49px、跑过一局回到菜单 102px,
+     横屏手机 844x390 回菜单 26px —— 原来这条承诺只在 390x844 和桌面成立。
+     只压装饰性的高度(图标/标题/分隔线/说明框的行距),不动任何按钮的内边距:
+     命中区不能靠"反正还能滚"来兜底,44px 那道门在这儿照样要过。 */
+  @media (max-height:780px){
+    .ticon{font-size:30px}
+    .card h1{font-size:22px;letter-spacing:3px;margin:3px 0 0}
+    .hr{margin:4px 0 2px}
+    .tag{font-size:12px;margin-bottom:8px}
+    .how{padding:8px 13px;margin-bottom:10px}
+    .how p{margin:2px 0;line-height:1.4}
+    .badge{margin:1px 0}
+    .mini{margin-top:4px}
+  }
   .bigbtn{display:block;width:100%;border:none;border-radius:18px;padding:15px 0;margin:7px 0;cursor:pointer;
     font-size:19px;font-weight:900;letter-spacing:6px;color:#4a2b00;position:relative;overflow:hidden;
     background:linear-gradient(180deg,#ffe27a,#ffa23c);
@@ -105,33 +161,140 @@
   .ghost{background:rgba(255,255,255,.10);color:#e8efe8;box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
     border:1px solid rgba(255,255,255,.14);font-size:15px;font-weight:700;padding:12px 0;letter-spacing:3px}
   .ghost::after{display:none}
-  #timerbox{position:fixed;top:calc(env(safe-area-inset-top) + 64px);left:50%;transform:translateX(-50%);
-    z-index:6;background:linear-gradient(165deg,rgba(24,32,26,.75),rgba(10,15,11,.8));
+  /* 结算屏的三颗行动:高屏一行一颗(照旧),矮屏并排成一行。
+     实测 844×390 竖排时第三颗「📥 生成战报卡」落在 376-425,而视口只有 390 高 —— 主行动之外的
+     那颗要靠一次没有任何线索的滚动才摸得到。并排时收小字号字距,但不许把文案截断(守卫量字本身的墨迹宽,
+     不拿 scrollWidth 当尺 —— .bigbtn 的扫光 ::after 会把它顶大)。 */
+  .btnrow{display:block}
+  /* 设置面板比一屏高(实测 844×390 内容 637/可用 357,320×568 也要滚),出口必须常驻:
+     进来的路得配一条够得着的出去路。第 38 轮用的是 sticky 钉底,第 42 轮改成"卡片不滚、只有内容滚":
+     sticky 的尾块会浮在滚动内容之上,实测 844×390 下那行动效说明正好压在画质四个 chip 上,
+     玩家看得见按钮却点不到 —— 常驻出口不该以偷走别人的点击为代价。 */
+  #settings .card{display:flex;flex-direction:column;overflow:hidden}
+  #settings .setbody{flex:1 1 auto;min-height:0;overflow:auto}
+  #settings .setbody.scrolly{box-shadow:inset 0 -22px 16px -16px rgba(0,0,0,.8)}
+  #settings .cardfoot{flex:0 0 auto;padding-top:10px;
+    background:linear-gradient(rgba(11,17,13,0),rgba(11,17,13,.96) 26%)}
+  @media (max-height:470px){
+    #win .btnrow{display:flex;gap:6px}
+    #win .btnrow .bigbtn{flex:1 1 0;min-width:0;font-size:13.5px;letter-spacing:0;padding:12px 2px;white-space:nowrap}
+    #pause .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    #pause .btnrow .bigbtn{margin:0;min-width:0;font-size:15px;letter-spacing:1px;white-space:nowrap}
+  }
+  #timerbox{position:fixed;top:calc(var(--hudh,78px) + 6px);left:50%;transform:translateX(-50%);
+    z-index:8;background:linear-gradient(165deg,rgba(24,32,26,.75),rgba(10,15,11,.8));
     border:1px solid rgba(255,215,94,.35);color:#ffd75e;border-radius:14px;padding:6px 18px;
     font-size:20px;font-weight:900;letter-spacing:2px;pointer-events:none;
     box-shadow:0 8px 22px rgba(0,0,0,.4)}
   #timerbox.danger{color:#ff6b57;border-color:rgba(255,107,87,.5);animation:pulse .5s infinite alternate}
+  /* 限时模式的目标读数。第一版挂在倒计时正下方(中央车道),probe52 当场量出 #timerbox×#rushgoal 叠 97×11px
+     —— timerbox 比我估的高。改挂右上车道:rush 局里 #rvpill(对手)本来就不出现,这块地是空的。 */
+  #rushgoal{position:fixed;top:calc(var(--hudh,78px) + 44px);right:12px;z-index:8;
+   font-size:11.5px;font-weight:800;letter-spacing:.4px;color:#ffe9b0;background:rgba(18,22,28,.55);
+   border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:3px 10px;
+   pointer-events:none;display:none;white-space:nowrap}
   @keyframes pulse{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-50%) scale(1.07)}}
-  #rvpill{position:fixed;top:calc(env(safe-area-inset-top) + 64px);right:12px;z-index:6;
+  #rvpill{position:fixed;top:calc(var(--hudh,78px) + 6px);right:12px;z-index:8;
     background:linear-gradient(165deg,rgba(60,24,20,.75),rgba(30,10,8,.8));
     border:1px solid rgba(255,106,87,.4);color:#ff8a7a;border-radius:12px;padding:5px 12px;
     font-size:13px;font-weight:800;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+  #combo{position:fixed;top:calc(var(--hudh,78px) + 6px);left:12px;z-index:8;display:none;
+    background:linear-gradient(165deg,rgba(48,32,10,.82),rgba(22,14,5,.86));
+    border:1px solid rgba(255,184,76,.45);color:#ffc46a;border-radius:12px;padding:5px 12px;
+    font-size:13px;font-weight:900;letter-spacing:1px;pointer-events:none;
+    box-shadow:0 6px 18px rgba(0,0,0,.4);min-width:74px}
+  #combo.on{display:block;animation:cpop .26s cubic-bezier(.2,1.7,.4,1)}
+  @keyframes cpop{from{transform:scale(.72);opacity:.35}to{transform:scale(1);opacity:1}}
+  #combo b{color:#fff;font-size:15px}
+  #combobar{display:block;height:3px;margin-top:4px;border-radius:2px;background:#ffb84c;
+    transform-origin:left center}
   .mini{font-size:11px;opacity:.55;margin-top:8px;letter-spacing:.5px}
   #achv{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-top:12px}
   .ach{font-size:10.5px;padding:4px 10px;border-radius:999px;letter-spacing:1px;
     border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);opacity:.45}
   .ach.on{border-color:rgba(255,215,94,.45);background:rgba(255,215,94,.13);
     color:#ffd75e;opacity:1;font-weight:700}
+  /* 牌上那串门槛数字(50 件 / 25 连 …):次要字重,别抢走成就名 */
+  .ach em{font-style:normal;font-weight:600;opacity:.72;margin-left:5px;letter-spacing:0}
   .badge{display:inline-flex;align-items:center;gap:6px;margin-top:12px;
     background:rgba(255,215,94,.12);border:1px solid rgba(255,215,94,.34);
     color:#ffd75e;border-radius:999px;padding:6px 16px;font-size:12px;font-weight:700;letter-spacing:1px}
-  .stats{display:flex;gap:8px;margin:16px 0 10px}
+  .modes{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:2px 0 9px}
+  .chip{pointer-events:auto;flex:1 1 auto;min-width:58px;cursor:pointer;font-family:inherit;
+    border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:9px 5px;
+    font-size:12.5px;font-weight:700;letter-spacing:.3px;color:#dfe7df;
+    background:rgba(255,255,255,.07);transition:background .18s,color .18s,border-color .18s}
+  .chip.on{background:rgba(255,215,94,.17);border-color:rgba(255,215,94,.52);color:#ffd75e}
+  .chip:active{transform:scale(.96)}
+  .modeinfo{font-size:12.5px;line-height:1.5;opacity:.82;margin:0 2px 13px;min-height:19px}
+  .linkbtn{pointer-events:auto;display:block;width:100%;background:none;border:none;cursor:pointer;
+    font-family:inherit;color:rgba(255,255,255,.5);font-size:11.5px;letter-spacing:1px;
+    font-weight:700;padding:10px 0 2px}
+  .linkbtn:active{color:#ffd75e}
+  #more{overflow:hidden;max-height:0;transition:max-height .32s ease}
+  #more.open{max-height:560px}
+  /* flex-wrap 是必需的:明细那一长条(kindLine)也住在这个行里,不给它换行的余地,
+     它就会按 min-content 把三个格子挤到 40px 宽 —— 数字与标签全被迫折行(实测 390 与 844 都一样)。 */
+  .stats{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 10px}
   .st{flex:1;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.10);
     border-radius:16px;padding:12px 4px}
   .st b{display:block;font-size:19px;font-weight:900}
   .st span{font-size:10.5px;opacity:.7;letter-spacing:1px}
   .rec{font-size:14px;color:#ffd75e;font-weight:800;margin:2px 0 8px;letter-spacing:2px}
   .foot{font-size:10px;opacity:.4;margin-top:14px;letter-spacing:2px}
+  .card.scrolly{box-shadow:0 34px 90px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.14),
+    inset 0 -22px 16px -16px rgba(0,0,0,.8)}
+  /* 小屏/横屏:先把留白和字号收掉,让主行动不落在折叠线以下 */
+  @media (max-height:700px){
+    .card{padding:18px 16px 14px;border-radius:24px}
+    .ticon{font-size:36px}
+    .card h1{font-size:22px;letter-spacing:3px;margin:2px 0 0}
+    .hr{display:none}
+    .tag{margin-bottom:8px;font-size:12px}
+    .how{padding:8px 12px;margin-bottom:9px;border-radius:14px}
+    .how p{font-size:12.5px;line-height:1.4;margin:3px 0}
+    .modes{gap:5px;margin:0 0 7px}
+    .modeinfo{margin-bottom:8px;font-size:12px;line-height:1.4}
+    .bigbtn{padding:12px 0;font-size:17px;letter-spacing:3px;margin:5px 0}
+    .badge{margin-top:8px;padding:5px 12px;font-size:11px}
+    .linkbtn{padding:6px 0 0}
+    .foot{margin-top:7px}
+  }
+  /* 横屏/超矮屏:主行动必须一眼可见,静态教学交给局内的条件式引导 */
+  @media (max-height:470px){
+    .how,.tag{display:none}
+    .card{padding-top:12px}
+    .ticon{font-size:30px}
+  }
+  @media (max-width:380px){
+    .card{padding:14px 11px}
+    .chip{min-width:50px;padding:9px 3px;font-size:12px}
+    .bigbtn{letter-spacing:1px}
+    .setrow label{flex:0 0 50px}
+  }
+  /* 触屏:所有可点的东西至少 44px,别让人练准头 */
+  @media (pointer:coarse){
+    .chip{min-height:44px;padding:12px 6px}
+    .gear{width:44px;height:44px;font-size:19px}
+    .linkbtn{min-height:44px;padding:14px 0}
+    .setgrp .chip{min-height:44px}
+    /* 主行动按钮和 ghost 变体也要钉住:它们只靠 padding 撑高度,矮屏那条规则会把 padding 压到 12px */
+    .bigbtn{min-height:44px}
+    .ghost{min-height:44px}
+    /* 音量滑轨的视觉轨道保持细,但命中区要给拇指——阈值只留一个 44,别让守卫记两套数 */
+    .setrow input[type=range]{min-height:44px}
+  }
+  .gear{position:absolute;top:12px;right:12px;width:44px;height:44px;border-radius:13px;z-index:2;
+    border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#fff;
+    font-size:19px;line-height:1;cursor:pointer;pointer-events:auto}
+  .gear:active{transform:scale(.9);background:rgba(255,215,94,.18)}
+  .setrow{display:flex;align-items:center;gap:10px;margin:9px 0}
+  .setrow label{flex:0 0 58px;font-size:12.5px;text-align:left;opacity:.85;font-weight:700}
+  .setrow output{flex:0 0 30px;font-size:12px;text-align:right;opacity:.7;font-variant-numeric:tabular-nums}
+  .setrow input[type=range]{flex:1;pointer-events:auto;touch-action:pan-x;accent-color:#ffb84c;height:26px}
+  .setgrp{margin:13px 0 4px;text-align:left}
+  .setgrp>span{font-size:10.5px;opacity:.55;letter-spacing:2px;font-weight:700}
+  .setgrp .modes{margin-top:6px}
 </style>
 </head>
 <body>
@@ -146,26 +309,128 @@
 </div>
 <div id="boot" style="position:fixed;inset:0;z-index:99;background:#131c15;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px">
-  <div style="font-size:54px;animation:bootspin 1.6s linear infinite">🌪️</div>
+  <div id="bootSpin" style="font-size:54px;animation:bootspin 1.6s linear infinite">🌪️</div>
   <div style="color:#ffd75e;font-weight:900;letter-spacing:4px;font-size:17px">龙卷风大作战 3D</div>
-  <div style="color:rgba(255,255,255,.45);font-size:12px;letter-spacing:2px">风暴生成中,请稍候…</div>
+  <div id="bootMsg" style="color:rgba(255,255,255,.45);font-size:13px;letter-spacing:2px;text-align:center;padding:0 22px">风暴生成中,请稍候…</div>
+  <!-- 慢/CPU 被堵住的设备上,6 秒与 25 秒的 setTimeout 排不进来(实测 8× 降频下 9 秒启动全程无提示)。
+       这两条走 CSS 时间轴:opacity 动画由合成器驱动,主线程卡在解析脚本时照样按时出现。 -->
+  <div id="bootSlow" class="bootLate">
+    第一次进入要下载并解析整座城市的模型,请稍候…</div>
+  <div id="bootStuck" class="bootLate" style="animation-delay:25s">
+    <div style="color:rgba(255,255,255,.62);font-size:13px;max-width:30em;text-align:center;line-height:1.6">
+      还没等到风暴成形 —— 可能是网络中断或设备性能不足。</div>
+    <a id="bootReload" href="index.html">重新加载</a>
+    <div style="color:rgba(255,255,255,.38);font-size:12px">也可以继续等,进度不会丢。</div>
+  </div>
+  <div id="bootWhy" style="display:none;color:rgba(255,255,255,.62);font-size:13px;max-width:30em;text-align:center;line-height:1.6"></div>
+  <div id="bootBtns" style="display:none;gap:10px;flex-wrap:wrap;justify-content:center;padding:0 18px"></div>
 </div>
-<style>@keyframes bootspin{to{transform:rotate(360deg)}}</style>
-<canvas id="mm" width="264" height="264" style="width:116px;height:116px"></canvas>
+<script>
+/* 启动看门狗:必须在两个大内联脚本之前,否则崩了就没人说话。
+   阈值按实测健康启动 3.4s 留倍数;6s 只是换句话安抚,25s 才承认"没等到"。 */
+(function(){
+ var GIVE=25000,state=0;
+ function el(i){return document.getElementById(i);}
+ function alive(){return !!el('boot');}
+ function say(msg,why){                       // 停转圈,把话说清楚,并给出出口
+  if(state===2)return;state=2;
+  var s=el('bootSpin');if(s){s.style.animation='none';s.textContent='⚠️';}
+  // CSS 时间轴那两条(6s/25s)由 JS 接管后关掉,免得同一个遮罩里出现两套话
+  var ls=el('bootSlow'),lk=el('bootStuck');
+  if(ls)ls.style.display='none';if(lk)lk.style.display='none';
+  el('bootMsg').textContent=msg;
+  var w=el('bootWhy');w.textContent=why||'';w.style.display=why?'block':'none';
+  var b=el('bootBtns');b.style.display='flex';b.innerHTML='';
+  var r=document.createElement('button');r.id='bootRetry';
+  r.textContent='重新加载';r.style.cssText='background:#ffd75e;color:#1b2419;font-weight:900;'+
+   'border:0;border-radius:12px;padding:12px 20px;font-size:15px;min-height:44px;cursor:pointer';
+  r.onclick=function(){location.reload();};b.appendChild(r);
+  if(alive())el('boot').setAttribute('role','alert');
+ }
+ window.__bootFail=function(msg,why){say(msg,why);};
+ // 6 秒那句交给 CSS 时间轴(见 #bootSlow):主线程被大脚本堵住时 setTimeout 排不进来
+ setTimeout(function(){                       // 等太久了:给出口,但也允许"继续等"
+  if(state===2||!alive())return;
+  say('加载没有完成','可能是网络中断或设备性能不足。');
+  var b=el('bootBtns'),w=document.createElement('button');w.id='bootWait';
+  w.textContent='继续等待';w.style.cssText='background:rgba(255,255,255,.12);color:#fff;'+
+   'border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:12px 20px;font-size:15px;'+
+   'min-height:44px;cursor:pointer';
+  w.onclick=function(){state=0;b.innerHTML='';b.style.display='none';
+   el('bootWhy').style.display='none';
+   var s=el('bootSpin');if(s){s.style.animation='';s.textContent='🌪️';}
+   el('bootMsg').textContent='仍在加载,请稍候…';};
+  b.appendChild(w);
+ },GIVE);
+ addEventListener('error',function(e){        // 启动期任何抛错都别再装"请稍候"
+  // 故意用冒泡阶段:资源 404(img/script/manifest)只会以捕获 phase 命中这里,
+  // 那类错误不影响能不能玩,拦下来只会造成误报。
+  var m=e&&e.message;
+  if(!m||state===2||!alive()||!el('bootMsg'))return;
+  say('启动出错','如果反复出现,请把下面这行发给开发者:'+String(m).slice(0,120));
+ });
+ /* 首帧画完才把两大块脚本交还给解析器。
+    实测 20× 降频下,直接内联会让浏览器在同一个任务里编译执行 6.5MB,
+    主线程从 0.5s 一直堵到 11s —— 遮罩一个字都没画出来,上面所有"按时说话"都成了空话。 */
+ function run(id,next){
+  var c=el(id),code=c.textContent;c.textContent='';   // 交出去就释放这份文本占的内存
+  var s=document.createElement('script');s.text=code;
+  document.head.appendChild(s);s.remove();            // 同步执行,与原内联同语义(顶层 let/const 仍是全局词法)
+  if(next)next();
+ }
+ var fired=0;
+ function start(){
+  if(fired||state===2)return;                          // 已经报错就别再往下砸
+  // 交还的必须是"解析完的那一份"。实测 20×~60× 降频下解析要 7~9 秒,提前交还拿到的是
+  // 半截 three.js ⇒ appendChild 抛 SyntaxError,看门狗弹错误卡,整局死在这里(变异腿抓出来的)。
+  if(document.readyState==='loading'||!el('srcThree')||!el('srcGame'))return;
+  fired=1;run('srcThree',function(){run('srcGame');});
+ }
+ function whenReady(){
+  if(document.hidden){start();return;}                 // 后台标签页没有首帧可等,rAF 也不会来
+  requestAnimationFrame(function(){requestAnimationFrame(start);});
+ }
+ if(document.readyState==='loading')addEventListener('DOMContentLoaded',whenReady);else whenReady();
+ setTimeout(start,12000);                              // 兜底的兜底:窗口可见却迟迟不产帧的边角情况
+})();
+</script>
+<style>@keyframes bootspin{to{transform:rotate(360deg)}}
+/* 迟到提示:opacity 动画走合成器时间轴,主线程被一个大脚本堵住时照样按 animation-delay 出现 */
+@keyframes bootlate{from{opacity:0}to{opacity:1}}
+.bootLate{opacity:0;animation:bootlate .6s ease forwards;will-change:opacity;
+ display:flex;flex-direction:column;
+ align-items:center;gap:12px;padding:0 22px;text-align:center}
+#bootSlow{color:rgba(255,255,255,.45);font-size:13px;letter-spacing:2px;line-height:1.6}
+#bootReload{background:#ffd75e;color:#1b2419;font-weight:900;border-radius:12px;
+ padding:12px 20px;font-size:15px;min-height:44px;line-height:20px;text-decoration:none;
+ display:inline-flex;align-items:center}
+/* 6 秒起把"风暴生成中"淡出去,换成下面那句 —— 反向播放同一条时间轴,不占主线程 */
+#bootMsg{animation:bootlate .6s ease reverse forwards;animation-delay:6s;will-change:opacity}
+/* 25 秒那张卡出现时,6 秒那句要跟着淡出。必须用"一条动画 + 关键帧里的两个折点",
+   不能写两条同名动画:同一属性上挂两个动画效果时 Chromium 会把它退回主线程驱动,
+   而这一段恰恰是主线程被 6.5MB 堵死的时候 —— 实测 6s 那句整场不再出现。
+   30s 时长:19%≈5.7s 起淡入,22%≈6.6s 全亮,82%≈24.6s 起淡出,85%≈25.5s 关闭。 */
+@keyframes bootline{0%,19%{opacity:0}22%,82%{opacity:1}85%,100%{opacity:0}}
+#bootSlow{animation:bootline 30s linear forwards}</style>
+<canvas id="mm" width="264" height="264" style="width:min(116px,21vw);height:min(116px,21vw)"></canvas>
 
 <div id="hud">
-  <div class="panel" id="scorep"><b id="score">0</b><span class="sub">吞噬 <b id="cnt">0</b></span></div>
+  <div class="panel" id="scorep"><b id="score">0</b><span class="sub">吞噬 <b id="cnt">0</b></span><span class="sub" id="clock">⏱ <b id="clockv">0:00</b></span></div>
   <div class="panel grow">
     <div id="lvname">LV.1 · 微风小龙卷</div>
     <div id="bar"><i id="fill"></i></div>
+    <div id="nextlv"></div>
   </div>
   <button class="cbtn" id="snd" title="声音">🔊</button>
-  <button class="cbtn" id="rst" title="重新开始">⟳</button>
+  <button class="cbtn" id="pp" title="暂停 (Esc)">⏸</button>
 </div>
 <div id="hint"></div>
+<div id="tut"><i id="tutn">1</i><span id="tutt"></span></div>
 <div id="banner"></div>
 <div id="timerbox" style="display:none">⏱ 2:00</div>
+<div id="rushgoal"></div>
 <div id="rvpill" style="display:none">🔴 对手 0</div>
+<div id="combo">连击 ×<b id="combon">3</b><i id="combobar"></i></div>
 <div id="flash" style="position:fixed;inset:0;background:#eaf2ff;opacity:0;pointer-events:none;z-index:8"></div>
 <div style="position:fixed;inset:0;pointer-events:none;z-index:9;
  background:radial-gradient(ellipse at center,transparent 52%,rgba(16,22,28,.36) 100%)"></div>
@@ -174,37 +439,101 @@
 
 <div id="menu" class="overlay">
   <div class="card">
+    <button class="gear" id="cfg" title="设置">⚙️</button>
     <div class="ticon">🌪️</div>
     <h1>龙卷风大作战</h1>
     <div class="hr"><span>REALISTIC 3D STORM</span></div>
     <p class="tag">从一缕微风,卷成吞掉整座城市的天灾</p>
-    <div class="how">
-      <p><em>👆</em>按住屏幕拖动,龙卷风跟着手指走</p>
-      <p><em>🌼</em>先吃小花小草石头,越吃越大</p>
-      <p><em>🚗</em>长大后,汽车、房子全都能卷上天</p>
-      <p><em>🏆</em>卷碎市中心的电视塔,就赢啦!</p>
-      <p style="opacity:.55;font-size:11.5px"><em>⌨️</em>电脑上也可以用 WASD / 方向键玩</p>
+    <div class="how" id="howto"></div>
+    <div class="modes" id="modes">
+      <button class="chip on" data-k="campaign">🌪️ 闯关</button>
+      <button class="chip" data-k="rush">⏱ 限时</button>
+      <button class="chip" data-k="endless">♾️ 无尽</button>
+      <button class="chip" data-k="night">🌙 夜城</button>
+      <button class="chip" data-k="snow">❄️ 雪原</button>
     </div>
+    <p class="modeinfo" id="modeinfo"></p>
     <button class="bigbtn" id="start">开始游戏</button>
-    <button class="bigbtn ghost" id="rush">⏱ 限时挑战 · 2:00</button>
-    <button class="bigbtn ghost" id="night">🌙 夜晚模式</button>
-    <button class="bigbtn ghost" id="endless">♾ 无尽模式</button>
-    <button class="bigbtn ghost" id="snow">❄️ 雪原模式</button>
     <button class="bigbtn ghost" id="cont" style="display:none">▶ 继续上次</button>
     <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
       <div class="badge" id="best">🏆 闯关最佳 0</div>
       <div class="badge" id="bestRush">⏱ 挑战最佳 0</div>
     </div>
-    <p class="mini" id="statline"></p>
-    <div id="achv"></div>
-    <div id="history"></div>
-    <p class="foot">龙卷风大作战 3D · V3.1.0</p>
+    <button class="linkbtn" id="moreBtn">▸ 战绩与成就</button>
+    <div id="more">
+      <p class="mini" id="statline"></p>
+      <div id="achv"></div>
+      <div id="history"></div>
+    </div>
+    <p class="foot" id="foot"></p>
+  </div>
+</div>
+
+<div id="pause" class="overlay hidden" style="z-index:12">
+  <div class="card">
+    <div class="ticon">⏸</div>
+    <h1>已暂停</h1>
+    <div class="hr"><span>PAUSED</span></div>
+    <div class="stats" id="pstats"></div>
+    <!-- 四颗行动包一层:矮屏(横屏手机)下改成 2×2,否则「⚙️ 设置」整颗掉到视口外
+         (实测 844×390:pcfg 在 361-410 而视口只有 390 高,卡片 430/357 要滚,而这张卡没有滚动线索) -->
+    <div class="btnrow">
+    <button class="bigbtn" id="presume">继续游戏</button>
+    <button class="bigbtn ghost" id="prestart">重新开始</button>
+    <button class="bigbtn ghost" id="pmenu">回主菜单</button>
+    <button class="bigbtn ghost" id="pcfg">⚙️ 设置</button>
+    </div>
+    <p class="mini" id="psave"></p>
+  </div>
+</div>
+
+<div id="settings" class="overlay hidden" style="z-index:22">
+  <div class="card">
+   <div class="setbody" id="setBody">
+    <div class="ticon" style="font-size:44px">⚙️</div>
+    <h1 style="font-size:25px;letter-spacing:4px">设置</h1>
+    <div class="hr"><span>SETTINGS</span></div>
+    <div class="setrow"><label for="sMaster">主音量</label>
+      <input type="range" id="sMaster" min="0" max="100" step="5"><output id="sMasterV"></output></div>
+    <div class="setrow"><label for="sSfx">音效</label>
+      <input type="range" id="sSfx" min="0" max="100" step="5"><output id="sSfxV"></output></div>
+    <div class="setrow"><label for="sAmb">环境音</label>
+      <input type="range" id="sAmb" min="0" max="100" step="5"><output id="sAmbV"></output></div>
+    <div class="setgrp"><span>画质</span>
+      <div class="modes" id="sQ">
+        <button class="chip" data-v="auto">自动</button>
+        <button class="chip" data-v="high">高</button>
+        <button class="chip" data-v="mid">中</button>
+        <button class="chip" data-v="low">低</button>
+      </div></div>
+    <div class="setgrp"><span>动效</span>
+      <div class="modes" id="sR">
+        <button class="chip" data-v="auto">跟随系统</button>
+        <button class="chip" data-v="on">减弱</button>
+        <button class="chip" data-v="off">标准</button>
+      </div></div>
+    <div class="modes" style="margin-top:12px">
+      <button class="chip" id="sVib">📳 震动反馈</button>
+      <button class="chip" id="sCb">🎨 色盲友好描边</button>
+    </div>
+   </div>
+    <!-- 出口包一层:设置面板比一屏高(实测 844×390 内容 637 而可用 357),「完成」掉在 520-568 之外,
+         横屏手机进来之后没有可见的出口。第 38 轮把它 sticky 钉底,第 42 轮改成不滚动的兄弟块:
+         sticky 的最后一块会浮在滚动内容之上,实测 844×390 那行「已手动设为减弱动效…」正好压在
+         画质四个 chip 中间 —— 玩家看得见"自动/高/中/低"却点不到(命中测试:中心被 #sNote 接走)。
+         出口照样常驻,但不再盖住别人的点击。 -->
+    <div class="cardfoot">
+    <button class="bigbtn" id="sClose" style="margin-top:14px">完成</button>
+    <button class="linkbtn" id="sReset">恢复默认设置</button>
+    <p class="mini" id="sNote"></p>
+    </div>
   </div>
 </div>
 
 <div id="shareLayer" class="overlay hidden" style="z-index:20">
   <div class="card" style="padding:14px">
     <img id="shareImg" style="width:100%;border-radius:14px" alt="战报">
+    <a class="bigbtn" id="saveCard" href="#" download>💾 保存战报卡</a>
     <button class="bigbtn ghost" id="shareClose" style="margin-top:10px">关闭</button>
   </div>
 </div>
@@ -215,13 +544,19 @@
     <div class="hr"><span>MISSION COMPLETE</span></div>
     <div class="stats" id="stats"></div>
     <p class="rec" id="rec" style="display:none">★ 新纪录 ★</p>
+    <!-- 三颗行动包一行:横屏 844×390 下竖排会把第三颗「📥 生成战报卡」推到视口外
+         (实测 376-425 而视口只有 390 高,卡片 427/357 要滚,而这张卡没有 #menu 那套"下面还有"线索) -->
+    <div class="btnrow">
     <button class="bigbtn" id="again">再玩一次</button>
     <button class="bigbtn ghost" id="free">继续闲逛</button>
     <button class="bigbtn ghost" id="share">📥 生成战报卡</button>
+    </div>
   </div>
 </div>
 
-<script>/*__THREE__*/</script>
-<script>/*__GAME__*/</script>
+<!-- 两大块脚本以"纯文本"形式待命,由上面的看门狗在首帧画完后交还给解析器。
+     直接内联的话浏览器在同一个任务里就把它们编译执行掉,遮罩一个字都来不及画。 -->
+<script type="text/plain" id="srcThree">/*__THREE__*/</script>
+<script type="text/plain" id="srcGame">/*__GAME__*/</script>
 </body>
 </html>

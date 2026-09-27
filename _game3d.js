@@ -6,6 +6,25 @@
    ============================================================ */
 const $=id=>document.getElementById(id);
 function rnd(a,b){return a+Math.random()*(b-a);}
+/* ---------- 玩家设置(存 tornadoCfg,面板在第 5B 轮接入) ---------- */
+const VER='3.1.0';   // 版本号只有一个来源:菜单脚注和战报卡都从这里取
+const CFGD={master:90,sfx:85,amb:70,quality:'auto',vib:true,reduce:'auto',cb:false,mode:'campaign'};
+let CFG=Object.assign({},CFGD);
+try{const s=JSON.parse(localStorage.getItem('tornadoCfg'));if(s)CFG=Object.assign(CFG,s);}catch(e){}
+function saveCfg(){try{localStorage.setItem('tornadoCfg',JSON.stringify(CFG))}catch(e){}}
+let reduceMotion=false;
+function sysReduce(){try{return matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){return false}}
+function applyReduce(){reduceMotion=CFG.reduce==='on'?true:CFG.reduce==='off'?false:sysReduce();}
+const QSTEP={high:0,mid:2,low:3};
+let qAuto=true;
+function applyQuality(){qAuto=CFG.quality==='auto';
+ if(!qAuto){qStep=QSTEP[CFG.quality];applyQ();}}
+function applyCfg(){applyReduce();applyQuality();
+ if(masterG)masterG.gain.value=.9*CFG.master/100;
+ if(busAmb)busAmb.gain.value=CFG.amb/100;
+ if(busSfx)busSfx.gain.value=CFG.sfx/100;
+ for(const m of lockRings)m.material.color.setHex(CFG.cb?0xbfe0ff:0xffd98a);
+ if(document.getElementById('sVib'))renderSettings();}
 const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
 const easeOut=t=>1-Math.pow(1-t,3);
 const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
@@ -13,7 +32,11 @@ const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
 /* ---------- 渲染基础 ---------- */
 let renderer;
 try{renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});}
-catch(e){document.body.innerHTML='<p style="color:#fff;padding:40px;font-size:18px">此浏览器不支持 WebGL,无法运行 3D 版。</p>';throw e;}
+catch(e){ // 说清原因并给出出口,而不是把整页换成一行判死刑的字
+ if(window.__bootFail)__bootFail('这台设备或浏览器跑不了 3D','原因:'+(e&&e.message?
+  String(e.message).slice(0,120):'WebGL 不可用')+'。可以换个浏览器,或在系统设置里开启图形加速后重新加载。');
+ else document.body.innerHTML='<p style="color:#fff;padding:40px;font-size:18px">此浏览器不支持 WebGL,无法运行 3D 版。</p>';
+ throw e;}
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
@@ -27,12 +50,32 @@ scene.fog=new THREE.Fog(0xc3d9ea,1500,4600);
 const camera=new THREE.PerspectiveCamera(55,1,2,16000);
 function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
+/* 第二排(连击牌/计时器/对手牌)和升级横幅的位置不能写死魔数:"还差几分"那行会折行,
+   第一排实际高到 ~78px,写死的 top:64px 就把连击牌压在分数面板下沿、把横幅落在倒计时那一行。
+   量真实高度交给 CSS 变量 --hudh,ResizeObserver 覆盖"没改窗口但行长变了"的情况。 */
+function hudH(){const h=$('hud');if(h)document.documentElement.style.setProperty('--hudh',h.offsetHeight+'px');}
+addEventListener('resize',hudH);
+if('ResizeObserver' in window&&$('hud'))new ResizeObserver(hudH).observe($('hud'));
 const MAXANI=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+/* 斜视角不该被 mipmap 抹平:所有真正贴在表面上的画布贴图统一开各向异性。
+   实测(第 56 轮 probe93):墙面一张 512² 铺在 20m 的立面上 = 33.8 纹素/px,而各向异性=1 ⇒ 屏幕上的
+   街道面全被平均成一片糊;这里开一次就把 10 个 CanvasTexture 创建点全覆盖,不用每处记得写。
+   两类豁免都要有证人(verify49 B2 数着):①天空/环境球——不斜贴在表面上看;②根本没开 mipmap 的贴图——
+   各向异性对它们不起作用,那种"糊"归细节密度那条判据管,不许混进这条。 */
+function applyAniso(){let n=0,sk=0;
+ const hit=t=>{if(!t||!t.isTexture||t.__ani)return;t.__ani=1;
+  if(t.mapping===THREE.EquirectangularReflectionMapping||!t.generateMipmaps){sk++;return;}
+  t.anisotropy=MAXANI;n++;};
+ scene.traverse(o=>{const ms=Array.isArray(o.material)?o.material:[o.material];
+  for(const m of ms){if(!m)continue;
+   for(const k of ['map','normalMap','roughnessMap','emissiveMap','aoMap','envMap'])hit(m[k]);}});
+ hit(scene.environment);hit(scene.background);
+ return {n,sk};}
 /* 帧率自适应:低帧自动降采样保流畅 */
 const DPRS=[2,1.5,1.25,1];let qStep=0,fpsAcc=0,fpsN=0,qCool=0;
 function applyQ(){renderer.setPixelRatio(Math.min(devicePixelRatio||1,DPRS[qStep]));}
 let lastFPS=0;
-function qualityTick(dt){fpsAcc+=dt;fpsN++;qCool-=dt;
+function qualityTick(dt){if(!qAuto)return;fpsAcc+=dt;fpsN++;qCool-=dt;
  if(fpsAcc>=2){const fps=fpsN/fpsAcc;fpsAcc=0;fpsN=0;lastFPS=fps;
   if(qCool<=0){
    if(fps<42&&qStep<DPRS.length-1){qStep++;applyQ();qCool=8;}
@@ -151,7 +194,13 @@ const SEA={x:0,z:0,w:560,h:960};
 ZR.beach=[{x:565,z:40,w:130,h:880}];
 ZR.grass=ZR.park.concat(ZR.suburb);
 ZR.city=ZR.suburb.concat(ZR.downtown);
-const TH=[0,20,60,140,280,520,850,1250];
+// 阈值按"分段收入"排过:实测 LV5→6 段 ~84 分/秒而 LV2 段 ~5 分/秒,旧表让 5→6 只用 2 秒连升,
+// 玩家来不及看清「下一级解锁」就已经过了。新表让相邻两级至少隔 6 秒、整局约 93 秒(与限时同量级)。
+/* 第一次"我变大了"必须在玩家还在乱点的头 20 秒内发生。
+   实测(随机点按的台架玩家,75s 三跑):TH[1]=48 时三跑全都没升级(分数 23~37,±30% 抖动),
+   降到 12 后 6.9s / 7.8s / 19.3s 三次全中。后面的门槛一律不动 ——
+   贪心 bot 的整局节奏(第 12 轮特意拉长到 ~2 分钟)不能被早期改动牵连。 */
+const TH=[0,12,144,304,640,1360,2240,3600];
 const LVN=['微风小龙卷','街道捣蛋鬼','公园终结者','街区拆迁队','汽车收藏家','楼房终结者','摩天楼克星','天灾之王'];
 
 /* ---------- 地面贴图(噪声草地 + 沥青路 + 斑马线) ---------- */
@@ -754,7 +803,7 @@ function addObj(k,x,z,rot){const d=TDEF[k];
  const node=G[k]();node.position.set(x,0,z);if(rot)node.rotation.y=rot;
  scene.add(node);
  objects.push({id:++objIdSeq,k,x,z,rot:rot||0,tier:d.tier,r:d.r,pts:d.pts,seed:rnd(0,6.28),zone:d.zone,
-  node,state:'idle',t:0,lock:0});}
+  node,state:'idle',t:0,locked:0});}
 function tryPlace(t){const rects=t.zone==='road'?null:ZR[t.zone];
  for(let a=0;a<60;a++){
   let x,z,rot=0;
@@ -827,7 +876,8 @@ function addClouds(){for(let i=0;i<10;i++){const g=new THREE.Group();
 const T={x:760,z:2640,r:26,tx:760,tz:2640};
 const tornado=new THREE.Group();scene.add(tornado);
 const lean=new THREE.Group();tornado.add(lean);
-const funnelUni={time:{value:0},cDark:{value:new THREE.Color(.42,.40,.38)},cLight:{value:new THREE.Color(.85,.84,.83)}};
+const funnelUni={time:{value:0},opK:{value:1},
+ cDark:{value:new THREE.Color(.40,.35,.29)},cLight:{value:new THREE.Color(.86,.80,.70)}};
 function smokeTex(){const c=document.createElement('canvas');c.width=c.height=256;
  const g=c.getContext('2d');g.fillStyle='#808080';g.fillRect(0,0,256,256);
  for(let i=0;i<60;i++){const x0=rnd(0,256),w=rnd(6,26),amp=rnd(6,20),ph=rnd(0,6.28);
@@ -841,17 +891,18 @@ function smokeTex(){const c=document.createElement('canvas');c.width=c.height=25
 const smokeT=smokeTex();
 function funnelMat(op,mul){return new THREE.ShaderMaterial({
  transparent:true,depthWrite:false,side:THREE.DoubleSide,
- uniforms:{time:funnelUni.time,op:{value:op},mul:{value:mul},tex:{value:smokeT}},
- vertexShader:`varying vec2 vUv;uniform float time;
+ uniforms:{time:funnelUni.time,op:{value:op},mul:{value:mul},tex:{value:smokeT},
+  opK:funnelUni.opK,uniCDark:funnelUni.cDark,uniCLight:funnelUni.cLight},
+ vertexShader:`varying vec2 vUv;varying vec3 vNrm;varying vec3 vEye;uniform float time;
   void main(){vUv=uv;vec3 p=position;
    float r=length(p.xz);float a=atan(p.z,p.x);
    float n=sin(a*5.0+time*3.6+uv.y*8.0)*.5+sin(a*11.0-time*5.2+uv.y*3.0)*.3+sin(a*19.0+time*7.5)*.2;
    r*=1.0+n*.15*(1.2-uv.y);
-   float sw=time*(2.2-uv.y*1.4)+uv.y*3.0;
-   float c=cos(sw),s=sin(sw);
    p.x=cos(a)*r;p.z=sin(a)*r;
-   gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}`,
- fragmentShader:`varying vec2 vUv;uniform float time;uniform float op;uniform float mul;uniform sampler2D tex;
+   vNrm=normalize(normalMatrix*normal);
+   vec4 mv=modelViewMatrix*vec4(p,1.0);vEye=mv.xyz;
+   gl_Position=projectionMatrix*mv;}`,
+ fragmentShader:`varying vec2 vUv;varying vec3 vNrm;varying vec3 vEye;uniform float time;uniform float op;uniform float mul;uniform float opK;uniform sampler2D tex;
   uniform vec3 uniCDark;uniform vec3 uniCLight;
   float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
   float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
@@ -865,7 +916,9 @@ function funnelMat(op,mul){return new THREE.ShaderMaterial({
    vec3 col=mix(dark,light,clamp(vUv.y*.9+.25+n*.4,0.,1.));
    col*= .8+.4*txv;
    float edge=smoothstep(0.0,.18,vUv.y)*smoothstep(1.0,.72,vUv.y);
-   float alpha=op*edge*(.55+.45*n)*mul;
+   // 正对镜头看过去是前后两层筒壁叠加,中心不压透就会把屏幕中央挡成实心黑楔子
+   float rim=1.0-abs(dot(normalize(vNrm),normalize(-vEye)));
+   float alpha=op*edge*(.55+.45*n)*mul*opK*mix(.62,1.0,smoothstep(0.0,.75,rim));
    gl_FragColor=vec4(col,alpha);}`});}
 const f1=new THREE.Mesh(new THREE.CylinderGeometry(54,8,152,26,14,true),funnelMat(.72,1));
 f1.position.y=76;lean.add(f1);
@@ -964,7 +1017,7 @@ function spawnDebris(kind,cs,n){const pool=POOLS.find(p=>p.k===kind)||POOLS[0];
  for(let i=0;i<n;i++){let idx=-1;
   for(let j=0;j<pool.n;j++)if(!pool.dinf[j].on){idx=j;break;}
   if(idx<0)idx=(Math.random()*pool.n)|0;
-  const d=pool.dinf[idx];d.on=true;d.y=rnd(8,60);
+  const d=pool.dinf[idx];d.on=true;d.y=rnd(8,60);d.t=0;   // 复用槽位必须把寿命计时清零,否则它会带着上一次的 t 立刻退场
   d.sx=rnd(.6,1.5);d.sy=rnd(.45,1.1);d.sz=rnd(.65,1.5);
   const picked=cs&&cs.length?cs[(Math.random()*cs.length)|0]:nat;
   if(kind==='metal')_col.set(picked).multiplyScalar(rnd(.9,1.1));
@@ -983,14 +1036,18 @@ scene.add(compass);compass.visible=false;
 let landmarkRef=null;
 
 function updateTornadoVisual(dt){
- const s=T.r/26,sy=Math.pow(s,.75);
+ funnelPulse*=Math.exp(-dt*7); // 吞吃瞬间鼓一下,给"我变强了"一个身体反应
+ const evo=Math.min(1,score/TH[7]);
+ // 成长必须写在角色身上:小龙卷只是地上的一缕,不能和天灾之王占一样大的屏幕
+ const grow=Math.min(1,(T.r-26)/124);
+ const s=T.r/26*(1+funnelPulse),sy=Math.pow(s,.75)*(1+funnelPulse*.6)*(.55+.45*grow);
  tornado.position.set(T.x,0,T.z);
  tornado.scale.set(s,sy,s);
  funnelUni.time.value=time;
- // 颜色随等级进化:尘卷风浅白 -> 黑色风暴
- const evo=Math.min(1,score/TH[7]);
- funnelUni.cDark.value.setRGB(.55-.40*evo,.53-.40*evo,.50-.38*evo);
- funnelUni.cLight.value.setRGB(.90-.43*evo,.89-.41*evo,.87-.37*evo);
+ funnelUni.opK.value=.74+.26*evo;  // 小的时候轻,大的时候压得暗(第 7 轮一度压太狠,轮廓看不见了)
+ // 颜色随等级进化:暖尘色一缕 -> 近黑风暴
+ funnelUni.cDark.value.setRGB(.40-.32*evo,.35-.29*evo,.29-.23*evo);
+ funnelUni.cLight.value.setRGB(.86-.51*evo,.80-.46*evo,.70-.38*evo);
  fpts.material.color.setRGB(.75-.18*evo,.66-.16*evo,.56-.18*evo);
  for(const sp of dustG.children)sp.material.color.setRGB(.80-.30*evo,.72-.28*evo,.58-.22*evo);
  storm.rotation.y=time*.12;
@@ -1006,7 +1063,13 @@ function updateTornadoVisual(dt){
   sp.position.set(Math.cos(u.a)*u.r,3+2*Math.sin(time*2+u.r),Math.sin(u.a)*u.r);}
  for(const pool of POOLS){const pd=pool.dinf;
   for(let i=0;i<pd.length;i++){const d=pd[i];if(!d.on)continue;
-   d.a+=d.s*dt;d.y+=14*dt;if(d.y>100)d.y=4;
+   d.a+=d.s*dt;d.y+=14*dt;
+   // 旧写法 `if(d.y>100)d.y=4;` 是**瞬移**:碎块飞到顶会凭空出现在底部(实测一帧 Δy≈-96),
+   // 玩家看到的是"柱子底下不断冒出新的碎块"。到顶就退场,不做回卷 —— 反正上面已经给了 6.5~10.5 秒寿命。
+   if(d.y>100){d.y=100;d.on=false;}
+   // 绕柱的碎块得有生有死:旧写法从不关 d.on ⇒ 90 个槽位只增不减,填满后新破坏只能复用旧槽,
+   // 玩家看到的是"拆得越多越没碎块"(静默消失)。给 7~11 秒寿命,到点退场(视觉仍是绕柱环,不改手感形状)。
+   d.t=(d.t||0)+dt;if(d.t>(6.5+d.r%5))d.on=false;
    _e.set(time*2+i,time*1.6+i*2,0);_q.setFromEuler(_e);
    const wob=Math.sin(time*2.2+i)*10;
    _m4.compose(_p3.set(Math.cos(d.a)*(d.r+wob),d.y,Math.sin(d.a)*(d.r+wob)),_q,_s.set(d.sx,d.sy,d.sz));
@@ -1026,7 +1089,7 @@ function updateTornadoVisual(dt){
 let boltT=rnd(4,9),hemiBase=.42,flashActive=false,stormLevel=0;
 function lightning(dt){boltT-=dt*(1+stormLevel*1.6);if(boltT>0)return;
  boltT=Math.max(1.6,rnd(5,11)-stormLevel*5.5);
- const f=$('flash');f.style.transition='none';f.style.opacity=.2+stormLevel*.14;
+ const f=$('flash');f.style.transition='none';f.style.opacity=reduceMotion?.05:.2+stormLevel*.14;
  setTimeout(()=>{f.style.transition='opacity .5s';f.style.opacity=0;},60);
  hemi.intensity=1.7;flashActive=true;
  setTimeout(()=>{hemi.intensity=hemiBase;flashActive=false;},110);
@@ -1105,6 +1168,44 @@ function updateRipples(dt,pEsc){
   r.m.scale.setScalar(1+k*14);
   r.m.material.opacity=.4*(1-k);}}
 
+/* 吃不动的物件:脚下琥珀色提示环(池化 6,只标最近碰到的几个,避免满屏恐慌) */
+const LOCKN=6;
+const lockGeo=new THREE.RingGeometry(.87,1,28);
+// 琥珀(0xffb648)的亮度约 191,而白天地面的亮度约 175 —— 单靠琥珀在白天几乎等亮,实测最淡一帧只有
+// 6~9/255 的亮度差(verify17 Y1/Y2)。所以配一圈深色衬环:琥珀条夹在暗边中间,亮地面、夜城都读得出。
+const lockGeo2=new THREE.RingGeometry(.68,1.16,28);
+const lockRings=[],lockShades=[];
+for(let i=0;i<LOCKN;i++){const m=new THREE.Mesh(lockGeo,new THREE.MeshBasicMaterial({color:0xffd98a,
+ transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));
+ m.rotation.x=-Math.PI/2;m.position.y=.6;m.visible=false;
+ m.renderOrder=10;scene.add(m);            // 排在风柱尘盘之后:不然"走近了"反而被自己的风柱洗掉(实测 Weber 0.11)
+ lockRings.push(m);
+ const sh=new THREE.Mesh(lockGeo2,new THREE.MeshBasicMaterial({color:0x1d1608,
+  transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));
+ sh.rotation.x=-Math.PI/2;sh.position.y=.55;sh.visible=false;
+ sh.renderOrder=9;scene.add(sh);
+ lockShades.push(sh);}
+function updateLockRings(){
+ const cand=[];
+ for(const o of objects){if(o.state!=='idle')continue;
+  // 等级够不够、以及这座塔在当前模式到底卷不卷得动 —— 卷不动的塔也要亮圈,否则玩家只会
+  // 反复冲过去,以为是自己没对准(实测:满级在塔上停 24 秒,游戏一个字都没说)
+  if(!(o.tier>level||(o.k==='landmark'&&!towerEdible())))continue;
+  const dd=Math.hypot(o.x-T.x,o.z-T.z);
+  if(dd<T.r*2+o.r+46)cand.push([dd,o]);}
+ cand.sort((a,b)=>a[0]-b[0]);
+ for(let i=0;i<LOCKN;i++){const m=lockRings[i],sh=lockShades[i],c=cand[i];
+  if(!c){m.visible=false;sh.visible=false;continue;}
+  const o=c[1],k=1-Math.min(1,c[0]/(T.r*2+o.r+46)); // 越近越实
+  const pu=1+Math.sin(time*4.5)*.14;                // 环和衬环一起脉动,别一个动一个不动
+  m.visible=true;sh.visible=true;m.position.set(o.x,.6,o.z);sh.position.set(o.x,.55,o.z);
+  const s=o.r*1.8*(1+Math.sin(time*4.5)*.045);
+  m.scale.set(s,s,1);sh.scale.set(s,s,1);
+  m.material.opacity=(.34+.28*k)*pu;
+  sh.material.opacity=Math.min(.9,(.42+.30*k)*pu);}}
+  // 旧值 (.20+.34k)*(1±.22) 让最淡的一帧在白天只有 6.9/255 的亮度差(实测 probe24)——
+  // "吃不动的会亮圈"这条信息在它最该出现的地方几乎看不见。脉动照留,但把地板抬起来。
+
 function updateRain(dt,pEsc){rain.material.opacity=pEsc*.4;
  if(pEsc<.02)return;
  for(let i=0;i<RN;i++){const i3=i*3;
@@ -1127,6 +1228,8 @@ function setupProbe(){
   probeMesh.material=BLD[4].clone();
   probeMesh.material.envMap=probeRT.texture;
   probeMesh.material.needsUpdate=true;}});
+ applyAniso();   // 反射探针是启动之后才挂上来的:克隆出来的材质带着一批新贴图槽位,补一次幂等扫描
+                 // (verify49 B1 现场数出来的:不补这一下就有 4 张贴图各向异性还停在 1)
 }
 function clearProbe(){if(probeCam){scene.remove(probeCam);}
  if(probeRT){probeRT.dispose();}
@@ -1238,7 +1341,8 @@ function rivalUpdate(dt){if(phase==='menu')return;
  if(RV.pill)RV.pill.textContent='🔴 对手 '+RV.score;}
 
 /* ---------- 音效 ---------- */
-let AC=null,whGain=null,whFilt=null,rnGain=null,sirenOsc=null,sirenGain=null,sirenOn=false,BUS=null;
+let AC=null,whGain=null,whFilt=null,rnGain=null,sirenOsc=null,sirenGain=null,sirenOn=false,BUS=null,
+ masterG=null,busAmb=null,busSfx=null;
 let muted=false;try{muted=localStorage.getItem('tornadoMuted')==='1'}catch(e){}
 function audioUnlock(){if(AC)return;
  try{AC=new (window.AudioContext||window.webkitAudioContext)();
@@ -1247,19 +1351,21 @@ function audioUnlock(){if(AC)return;
   const src=AC.createBufferSource();src.buffer=buf;src.loop=true;
   const comp=AC.createDynamicsCompressor();
   comp.threshold.value=-18;comp.knee.value=12;comp.ratio.value=6;comp.attack.value=.004;comp.release.value=.18;
-  const master=AC.createGain();master.gain.value=.9;
-  comp.connect(master);master.connect(AC.destination);BUS=comp;
+  masterG=AC.createGain();masterG.gain.value=.9*CFG.master/100;
+  comp.connect(masterG);masterG.connect(AC.destination);BUS=comp;
+  busAmb=AC.createGain();busAmb.gain.value=CFG.amb/100;busAmb.connect(BUS);
+  busSfx=AC.createGain();busSfx.gain.value=CFG.sfx/100;busSfx.connect(BUS);
   whFilt=AC.createBiquadFilter();whFilt.type='bandpass';whFilt.frequency.value=380;whFilt.Q.value=.7;
   whGain=AC.createGain();whGain.gain.value=0;
-  src.connect(whFilt);whFilt.connect(whGain);whGain.connect(BUS);src.start();
+  src.connect(whFilt);whFilt.connect(whGain);whGain.connect(busAmb);src.start();
   const src2=AC.createBufferSource();src2.buffer=buf;src2.loop=true;
   const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=900;
   rnGain=AC.createGain();rnGain.gain.value=0;
-  src2.connect(lp);lp.connect(rnGain);rnGain.connect(BUS);src2.start();
+  src2.connect(lp);lp.connect(rnGain);rnGain.connect(busAmb);src2.start();
   // 防空警报:锯齿波慢扫频(LV6+ 常驻)
   sirenOsc=AC.createOscillator();sirenOsc.type='sawtooth';sirenOsc.frequency.value=480;
   sirenGain=AC.createGain();sirenGain.gain.value=0;
-  sirenOsc.connect(sirenGain);sirenGain.connect(BUS);sirenOsc.start();
+  sirenOsc.connect(sirenGain);sirenGain.connect(busAmb);sirenOsc.start();
  }catch(e){}}
 function audioFrame(dt){if(!AC)return;
  const tg=(muted||phase!=='play')?0:Math.min(.22,.05+T.r/150*.14);
@@ -1281,7 +1387,7 @@ function blip(f0,f1,dur,vol,type){if(!AC||muted)return;
  o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),AC.currentTime+dur);
  g.gain.setValueAtTime(vol,AC.currentTime);
  g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+dur);
- o.connect(g);g.connect(BUS||AC.destination);o.start();o.stop(AC.currentTime+dur);}catch(e){}}
+ o.connect(g);g.connect(busSfx||BUS||AC.destination);o.start();o.stop(AC.currentTime+dur);}catch(e){}}
 function popSnd(o){const f=Math.max(170,880-o.r*5.5);blip(f*1.5,f*.55,.13,.09);}
 function crackSnd(kind){if(!AC||muted)return;
  try{
@@ -1291,7 +1397,7 @@ function crackSnd(kind){if(!AC||muted)return;
    o.frequency.exponentialRampToValueAtTime(35,AC.currentTime+.22);
    g.gain.setValueAtTime(.12*(0.85+Math.random()*.3),AC.currentTime);
    g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.25);
-   o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+.26);
+   o.connect(g);g.connect(busSfx||AC.destination);o.start();o.stop(AC.currentTime+.26);
    blip(200,60,.15,.09,'sawtooth');}
   else if(kind==='wood'){blip(320,120,.18,.09,'square');blip(520,180,.1,.05,'triangle');}
   else if(kind==='metal'){blip(1200,300,.3,.06,'square');blip(2400,900,.18,.035,'sine');}
@@ -1305,7 +1411,10 @@ function startTear(o){
  const mats=[];o.node.traverse(c=>{
   if(c.isMesh&&c.material&&mats.indexOf(c.material)<0)mats.push(c.material);});
  o.frags=[];
- const n=o.tier>=6?6:4;
+ // 碎片数要跟体积相称:旧写法只有 `tier>=6?6:4` 两档 ⇒ 实测(probe96 D1)bus r=30 掉 4 块、
+ // sky r=75 也只掉 6 块,每单位体积的碎片数从 0.148 掉到 0.014 —— 拆大楼和拆长椅看起来一样碎。
+ // 按半径开方取整并夹在 4..12:长椅 4 / 公交 4 / 大宅 5 / 大楼 5-6 / 高楼 9 / 电视塔 12。
+ const n=Math.max(4,Math.min(12,Math.round(Math.pow(Math.max(1,o.r)/13,1.35))));
  for(let fi=0;fi<n;fi++){
      const fm=mats.length?mats[(Math.random()*mats.length)|0]:MAT.concrete;
      const fhh=rnd(5,14);
@@ -1317,12 +1426,12 @@ function startTear(o){
    rx:rnd(3,9)*(Math.random()<.5?-1:1),rz:rnd(2,7)*(Math.random()<.5?-1:1)});}
  burstCols(POOLMAP[o.k]||'concrete',null,3);
  addScar(o.x,o.z,o.r);scarList.push([Math.round(o.x),Math.round(o.z),o.r]);
- shake=Math.min(12,shake+2.5);crackSnd(POOLMAP[o.k]||'concrete');
+ shake=Math.min(1,shake+.14);crackSnd(POOLMAP[o.k]||'concrete');
  o.a0=Math.atan2(o.z-T.z,o.x-T.x);
  o.d0=Math.max(18,Math.hypot(o.x-T.x,o.z-T.z));}
 function chime(){blip(660,660,.18,.1,'sine');setTimeout(()=>blip(880,880,.28,.1,'sine'),120);}
 function fanfare(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>blip(f,f,.4,.13,'triangle'),i*170));}
-function vib(v){try{navigator.vibrate&&navigator.vibrate(v)}catch(e){}}
+function vib(v){if(!CFG.vib)return;try{navigator.vibrate&&navigator.vibrate(v)}catch(e){}}
 function vibTier(tier){ // 分级触感
  if(tier>=8)vib([50,50,50,50,140]);      // 电视塔:连震轰鸣
  else if(tier>=7)vib([30,40,70]);          // 摩天楼:三段重震
@@ -1337,29 +1446,69 @@ addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
 let pid=null;
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),
  gplane=new THREE.Plane(V3(0,1,0),0),hitP=V3(0,0,0);
-function setTarget(cx,cy){ndc.set(cx/innerWidth*2-1,-(cy/innerHeight)*2+1);
+/* 手指会盖住风柱正下方那块地面:触屏时把落点往屏幕上方抬,风柱就露在指尖之上 */
+const touchLift=()=>Math.min(170,innerHeight*.19);
+function setTarget(cx,cy,lift){const yy=Math.max(innerHeight*.16,cy-(lift||0));
+ ndc.set(cx/innerWidth*2-1,-(yy/innerHeight)*2+1);
  ray.setFromCamera(ndc,camera);
  if(ray.ray.intersectPlane(gplane,hitP)){
   T.tx=clamp(hitP.x,40,WORLD-40);T.tz=clamp(hitP.z,40,WORLD-40);}}
 const cvs=renderer.domElement;
-cvs.addEventListener('pointerdown',e=>{pid=e.pointerId;setTarget(e.clientX,e.clientY);
+cvs.addEventListener('pointerdown',e=>{pid=e.pointerId;
+ setTarget(e.clientX,e.clientY,e.pointerType==='touch'?touchLift():0);
  audioUnlock();if(AC&&AC.state==='suspended')AC.resume();});
-cvs.addEventListener('pointermove',e=>{if(e.pointerId===pid)setTarget(e.clientX,e.clientY);});
-const pend=e=>{if(e.pointerId===pid){pid=null;T.tx=T.x;T.tz=T.z;}};
-cvs.addEventListener('pointerup',pend);cvs.addEventListener('pointercancel',pend);
+// 悬停时 buttons=0(触屏拖动则恒为 1,不会被这条误伤):见到 0 就说明针早抬过了
+cvs.addEventListener('pointermove',e=>{if(e.pointerId!==pid)return;
+ if(!e.buttons){pid=null;return;}
+ setTarget(e.clientX,e.clientY,e.pointerType==='touch'?touchLift():0);});
+// 抬手不抹掉没走完的行程:实测"点一下"只让风柱走 37 世界单位(拖动 2 秒是 264),
+// 手指一抬目标就被拉回原地 ⇒ 点按派新手觉得屏幕没反应,引导第 1 步也永远过不去。
+// 但"听见抬手"必须挂在 window 上:触屏有浏览器隐式捕获保底,鼠标没有 ——
+// 在世界里按住、拖到 HUD 的 🔊/⏸ 上(或视口边缘的 HTML 上)松手,这次 pointerup 落在隔壁元素,
+// canvas 永远等不到 ⇒ pid 留着,之后光是移动鼠标就在拖着风柱走(实测松手后再悬停,目标又挪了 275 单位)。
+const pend=e=>{if(e.pointerId===pid)pid=null;};
+addEventListener('pointerup',pend);addEventListener('pointercancel',pend);
+// keyup 更不保证送到:切去别的程序时它发给了那个程序,回到本页那根键还留着 ⇒ 风柱自己狂奔
+const dropInput=()=>{for(const k in keys)keys[k]=0;pid=null;};
+addEventListener('blur',dropInput);
 cvs.addEventListener('contextmenu',e=>e.preventDefault());
 
 /* ---------- 浮动得分 ---------- */
 const fts=[];
-function ftext(wx,wy,wz,txt){const el=document.createElement('div');
- el.className='ftext';el.textContent=txt;document.body.appendChild(el);
- fts.push({el,wx,wy,wz,t:0});}
+const FTMAX=()=>reduceMotion?5:14;
+function ftext(wx,wy,wz,txt,pts){const el=document.createElement('div');
+ el.className='ftext';el.textContent=txt;
+ el.style.fontSize=Math.max(16,Math.min(28,16+(pts||0)*.05))+'px';
+ document.body.appendChild(el);
+ fts.push({el,wx,wy,wz,t:0,dx:rnd(-30,30)}); // 横向散布:同一落点会把飘字叠成一坨乱码
+ while(fts.length>FTMAX())fts.shift().el.remove();}
 function updateFts(dt){for(let i=fts.length-1;i>=0;i--){const f=fts[i];f.t+=dt;
  if(f.t>.9){f.el.remove();fts.splice(i,1);continue;}
  _p3.set(f.wx,f.wy,f.wz).project(camera);
- const x=(_p3.x*.5+.5)*innerWidth,y=(-_p3.y*.5+.5)*innerHeight;
+ const x=(_p3.x*.5+.5)*innerWidth+f.dx,y=(-_p3.y*.5+.5)*innerHeight;
  f.el.style.transform='translate(-50%,-50%) translate('+x+'px,'+(y-f.t*80)+'px)';
  f.el.style.opacity=String(1-f.t/.9);}}
+/* 连击是状态不是事件:固定在 HUD 里显示一个数字 + 剩余时间条,不再每次吞吃刷一条飘字 */
+let comboShown=0;
+/* 限时模式的目标读数。菜单有「⏱ 挑战最佳」、结算牌第三格也有,唯独玩的时候哪儿都看不到 ——
+   probe58 实测:跨过上局最佳前后,可见读数(HUD 五格 + 计时 + 提示 + 飘字)里提到这个数的有 0 个。
+   分数是瞬加的那条时间轴不作证据,这里只补"多少算好"这一个数。 */
+function rushGoal(){const el=$('rushgoal');if(!el)return;
+ if(mode!=='rush'||phase!=='play'||rushEnded){el.style.display='none';return;}
+ el.style.display='block';
+ const txt=rushBest?(score>rushBest?'🔥 已破纪录 +'+(score-rushBest):'目标 '+rushBest+' · 还差 '+(rushBest-score))
+  :'目标 尚无纪录';
+ if(el.textContent!==txt)el.textContent=txt;} // 每帧都调,但只在文案真的变了时写 DOM
+function showCombo(){const el=$('combo');
+ if(comboN<3){el.classList.remove('on');comboShown=0;return;}
+ el.classList.add('on');
+ if(comboN===comboShown)return;        // 每帧都调,里程碑必须按跳变触发
+ comboShown=comboN;
+ // 认真吃的时候这条几乎不会断(实测 238 次吃件里 235 次亮着、峰值 ×222),三位数的"连击 ×222"
+ // 挨着一堆分数看就像收益。超过 99 就封顶显示,真数值落在结算卡的「本局最高连击」里
+ $('combon').textContent=comboN>99?'99+':comboN;
+ if(comboN===5||comboN===10||comboN===25||comboN===50){
+  banner('连击 ×'+comboN+'!');blip(760+comboN*6,1240,.2,.11,'triangle');vib(30);}}
 
 /* ---------- 小地图 ---------- */
 const mm=$('mm'),mmx=mm.getContext('2d'),mmBase=document.createElement('canvas');
@@ -1369,15 +1518,44 @@ function buildMinimap(){mmBase.width=mmBase.height=264;const m=mmBase.getContext
  m.fillStyle='#a3a7ab';m.fillRect(0,0,3200*k,1000*k);
  m.fillStyle='#4b4f53';for(const rd of ROADS)m.fillRect(rd.x*k,rd.z*k,rd.w*k,rd.h*k);
  m.fillStyle='#3d7ea8';m.beginPath();m.arc(POND.x*k,POND.z*k,POND.r*k,0,7);m.fill();
- const TC=['#d7f0a8','#9ad066','#4caf50','#f0ad4e','#e67e22','#e74c3c','#9b59b6','#ffd700'];
+ // 只烙地标。食物点以前也烙在这里,结果是一张"开局快照":吃掉的东西点还亮在原地,
+ // 而颜色只有 tier,读不出"现在吃不吃得动"。实测 300 秒乱点吃了 39 件,底图仍留着 402 个开局点
+ // ⇒ 玩得越好,假目标越多。食物点改到下面那层实时画。
+ for(const o of objects) if(o.k==='landmark'){
+  m.fillStyle='#ffd700';m.beginPath();m.arc(o.x*k,o.z*k,7,0,7);m.fill();
+  m.strokeStyle='#fff';m.lineWidth=2;m.stroke();}}
+/* 食物点层:位置只在被吃掉时变、颜色分类只在升级时变 ⇒ 只在 (等级,吞噬数) 变化时重画一次。
+   每帧 400 个 arc 会把这块小窗格变成成本大户(小地图每帧都在画)。 */
+const mmFood=document.createElement('canvas');mmFood.width=mmFood.height=264;
+let foodVer='';
+function drawFoodLayer(){const k=264/WORLD,m=mmFood.getContext('2d');
+ m.clearRect(0,0,264,264);
+ // 这块窗格只有 82 CSS 像素:把 400 件全画上去是一片颗粒,读不出"该往哪走"(放大截图看过才承认)。
+ // 所以两类各留名额、按分值取前 N —— 而不是用分值门槛:
+ // 门槛版在 LV.1 会把 1 分的花草全滤掉,于是新手抬头看地图,一个亮点都没有(实测那条臂 300 秒只点出 1 次)。
+ /* 半径一律按"屏幕上看得见"定,不按物件真实尺寸:画布 264² 只印成 min(116px,21vw)(390px 手机 = 82 CSS px,
+    ×0.31),旧的 Math.max(1.6,o.r*k*1.5) 下限折到屏幕只剩 1.36 CSS px 直径,而大楼按真实尺寸能长到 5.1 px
+    ⇒ 图面上"卷不动"的墨占 5.7%、"卷得动"的只占 1.4%,最显眼的恰好是不该去的东西(实测三种场景同形)。
+    MMSC = 1 个屏幕 px 等于几个画布 px,所以点的大小与手机/桌面的窗格尺寸解耦。 */
+ const MMSC=264/(mm.clientWidth||116);
+ const scr=r=>r*MMSC;                       // 屏幕 px → 画布 px
+ const ed=[],lk=[];
  for(const o of objects){
-  if(o.axis||o.k.indexOf('ped')===0)continue; // 车流/行人改为动态点
-  m.fillStyle=TC[o.tier-1];
-  if(o.k==='landmark'){m.fillStyle='#ffd700';m.beginPath();m.arc(o.x*k,o.z*k,7,0,7);m.fill();
-   m.strokeStyle='#fff';m.lineWidth=2;m.stroke();}
-  else{m.beginPath();m.arc(o.x*k,o.z*k,Math.max(1.6,o.r*k*1.5),0,7);m.fill();}}}
+  if(o.state!=='idle'||o.axis||o.k.indexOf('ped')===0||o.k==='landmark')continue;
+  (o.tier<=level?ed:lk).push(o);}
+ const take=(a,n,fill,rd)=>{a.sort((x,y)=>y.pts-x.pts);
+  for(const o of a.slice(0,n)){m.fillStyle=fill;
+   m.beginPath();m.arc(o.x*k,o.z*k,rd(o),0,7);m.fill();}};
+ take(lk,24,'rgba(255,140,42,.45)',o=>Math.min(scr(1.2),Math.max(scr(.8),o.r*k*1.5)));  // 还得再长大:小且淡
+ take(ed,64,'rgba(255,228,132,.95)',o=>Math.max(scr(1.7),o.r*k*1.5));}                  // 这等级卷得动:至少 3.4 CSS px,后画压在上面
 function drawMinimap(){const S=mm.width,k=S/WORLD;
  mmx.clearRect(0,0,S,S);mmx.drawImage(mmBase,0,0);
+ // 版本键必须带上窗格的显示宽度:点的大小是第 41 轮按"屏幕 px"换算的(MMSC=264/mm.clientWidth),
+ // 而 #mm 是 min(116px,21vw) —— 手机转屏 82↔116 px 时 MMSC 变了,只认 (等级,吞噬数) 的话
+ // 那一层会带着旧缩放继续用,点当场退回亚像素,要等下一次升级或吃掉东西才纠正过来。
+ const fv=level+'|'+eaten+'|'+mm.clientWidth;
+ if(fv!==foodVer){foodVer=fv;drawFoodLayer();}
+ mmx.drawImage(mmFood,0,0);
  // 车流与行人实时动态点
  for(const o of objects){
   if(o.state!=='idle')continue;
@@ -1403,7 +1581,7 @@ function drawMinimap(){const S=mm.width,k=S/WORLD;
 
 /* ---------- 游戏流程 ---------- */
 let phase='menu',score=0,eaten=0,level=1,startT=0,elapsed=0,time=0,last=0,
- shake=0,hintT=0,startBest=0,vx=0,vz=0,comboN=0,comboT=0,fovKick=0,
+ shake=0,hitstop=0,funnelPulse=0,hintT=0,startBest=0,vx=0,vz=0,comboN=0,comboT=0,fovKick=0,runCombo=0,
  mode='campaign',rushT=0,rushEnded=false;
 let best=0;try{best=+localStorage.getItem('tornadoBest')||0}catch(e){}
 let rushBest=0;try{rushBest=+localStorage.getItem('tornadoBestRush')||0}catch(e){}
@@ -1417,39 +1595,123 @@ function renderHistory(){const el=$('history');if(!el)return;
  el.innerHTML=h.length?('<div style="font-size:10.5px;opacity:.5;letter-spacing:1px;margin-top:10px">最近战绩</div>'
   +h.map(r=>`<div style="font-size:11.5px;opacity:.75;margin-top:3px">${r.m} · ${r.s} 分 · ${fmt(r.t)}</div>`).join('')):'';}
 /* ---------- 成就徽章 ---------- */
+/* 门槛只有一份:数字写在 need 上,test() 与牌面文案都从它生成。
+   以前 test 里手写一个数、牌面只写名字,于是玩家看见 3/8 却不知道剩下 5 条各要什么、自己差多远。
+   c10 的 ×25 来历:probe47 用"拇指乱点"模型实测 3 局,连击峰值 ×15/×16,×10 那条在 2.5 秒就白送;
+   ×25 既高于乱点一局的上限,又正对上游戏自己的里程碑横幅第三档(5/10/25/50),认真吃一局能到 ×460。 */
 const ACHV=[
- {id:'e50', icon:'🌼', name:'初级饕餮', test:s=>s.eaten>=50},
- {id:'e200', icon:'🌪️', name:'饕餮之王', test:s=>s.eaten>=200},
- {id:'w1', icon:'🏆', name:'弑塔者', test:s=>s.wins>=1},
- {id:'w5', icon:'👑', name:'风暴常客', test:s=>s.wins>=5},
- {id:'c10', icon:'⚡', name:'连击大师', test:s=>s.maxCombo>=10},
- {id:'e1000', icon:'🌪️', name:'千物斩', test:s=>s.eaten>=1000},
- {id:'cb1', icon:'🔴', name:'宿敌克星', test:s=>(s.comebacks||0)>=1},
- {id:'r5', icon:'⏱', name:'挑战者', test:s=>(s.rushPlays||0)>=5},
-];
+ {id:'e50', icon:'🌼', name:'初级饕餮', field:'eaten', need:50, unit:'件'},
+ {id:'e200', icon:'🌪️', name:'饕餮之王', field:'eaten', need:200, unit:'件'},
+ {id:'w1', icon:'🏆', name:'弑塔者', field:'wins', need:1, unit:'次通关'},
+ {id:'w5', icon:'👑', name:'风暴常客', field:'wins', need:5, unit:'次通关'},
+ {id:'c10', icon:'⚡', name:'连击大师', field:'maxCombo', need:25, unit:'连'},
+ {id:'e1000', icon:'🌪️', name:'千物斩', field:'eaten', need:1000, unit:'件'},
+ {id:'cb1', icon:'🔴', name:'宿敌克星', field:'comebacks', need:1, unit:'次反超'},
+ {id:'r5', icon:'⏱', name:'挑战者', field:'rushPlays', need:5, unit:'局限时'},
+].map(a=>(a.test=s=>(+s[a.field]||0)>=a.need,a.prog=s=>Math.min(+s[a.field]||0,a.need),a));
 if(!stats.achv)stats.achv={};
 function renderAchv(){const el=$('achv');
  const got=ACHV.filter(a=>stats.achv[a.id]).length;
  el.innerHTML=`<div style="width:100%;font-size:11px;opacity:.6;letter-spacing:2px;margin-bottom:2px">🏅 成就 ${got}/${ACHV.length}</div>`
-  +ACHV.map(a=>{const on=stats.achv[a.id];
-  return `<span class="ach${on?' on':''}" title="${a.name}">${a.icon} ${a.name}</span>`;}).join('');}
+  +ACHV.map(a=>{const on=stats.achv[a.id],p=a.prog(stats);
+  // 牌面写"已 X/门槛":只有门槛的话,玩家分不清自己差 1 件还是差 40 件;分子与 test 同取 a.field
+  return `<span class="ach${on?' on':''}" title="${a.name} · 已 ${p}/${a.need}${a.unit}">${a.icon} ${a.name}<em>${p}/${a.need}${a.unit}</em></span>`;}).join('');
+ if($('moreBtn'))$('moreBtn').textContent=moreSummary();}
 function checkAchv(){let newly=null;
  for(const a of ACHV){if(!stats.achv[a.id]&&a.test(stats)){
   stats.achv[a.id]=true;newly=a;}}
  if(newly){saveStats();renderAchv();showHint(`🏅 成就解锁:${newly.name}!`,2600);}}
-let hintTO=null;
+let hintTO=null,lockHintT=0;
+/* 下一级解锁了什么:直接告诉玩家该去找什么吃 */
+/* 这座塔在当前模式卷不卷得动 —— 唯一真相。无尽/雪原(雪原复用 endless 的 mode 位)按设计
+   卷不动,限时卷得动但不结算。满级文案、锁圈、撞上去的解说三处都问它,不许各写一份规则。 */
+function towerEdible(){return mode!=='endless'}
+/* 这行的文案按"能不能被折行劈开"切成片段:[文本, 段内不许断行?]。
+   320px 手机上盒子只有 86px(一行的容量 ≈8 个字),实测断点会落在词中间:
+   「还差128分 · 下一」/「级解锁:大楼」、「🏆 去卷碎黄金电」/「视塔!」—— 玩家读出来的是半截词。
+   断点只留在 ' · ' 那道缝上,而 ' · ' 自己必须是可折的普通文本:实测把带前导空格的整块(' · 满级后')
+   钉成 nowrap 时,Chromium 不肯在两块之间换行,宁可让第一行溢出盒子 6~8px 被 overflow:hidden 裁掉尾巴。
+   文案缩成「解锁:」是为了第二行连同物件名装得下,不然这行要占三行(盒子容量决定,不是我想少说话)。 */
+function unlockParts(){
+ if(level>=8)return towerEdible()?[['🏆 去卷碎',1],['黄金电视塔!',1]]
+  :[['♾️ 满级:',1],['城市会长回来',1]];   // 不说"刷大件":320px 上这行要占三行,HUD 实测 104px > 96px 上限;
+                                        // 怎么刷由 LV.7 那句「满级后随便卷」承担,这里只留"会重生"这条机制信息
+ const ks=[...new Set(TYPES.filter(t=>t.tier===level+1&&
+  !/^ped/.test(t.k)&&t.k!=='landmark').map(t=>KINDNAMES[t.k]||t.k))];
+ const nm=ks.slice(0,1).join('·');              // 只报一样 + 数字:名字必须整块出现(见 unlockParts 的 nb)
+ const gap='还差'+Math.max(0,Math.ceil(TH[level]-score))+'分';
+ /* LV.7 这行的算术:320px 盒子 ≈86px(一行 ≈8 个字)、HUD 上限 96px = 只许两行,而第一行被"还差 N 分"吃掉 55~68px
+    ⇒ 尾巴最多 7 个字。verify17 Y5 要求这行同时出现"电视塔"与"通关"(砍'通关'被它当场抓住:那是唯一说"这局会结束"的字),
+    所以不是删词而是压短:去掉定语'黄金'(全名在 LV.8 那句和锁圈提示里都在),留「卷电视塔通关」6 字
+    ⇒ 320 两行、390 一行(Y7 要求 390 下这行不许折)。 */
+ if(level>=TH.length-1)return towerEdible()
+  ?[[gap,1],[' · '],['卷电视塔'+(mode==='campaign'?'通关':''),1]]
+  :[[gap,1],[' · '],['满级后随便卷',1]];
+ // 进度条只说"到哪儿了",不说"还差多少";把阈值写成数字,不用猜格子还剩几格
+ return [[gap,1],[' · '],['解锁:',1],[nm||'更大的目标',1]];}
+function nextUnlock(){return unlockParts().map(p=>p[0]).join('')}
+/* nextUnlock 仍是纯文本:台架读它,el.textContent 比对的也是它 —— 一份措辞两个出口,不会走偏。 */
+function showUnlock(){const ps=unlockParts(),el=$('nextlv'),
+ t=ps.map(p=>p[0]).join('');
+ if(el.textContent!==t){el.innerHTML=ps.map(([s,nb])=>
+  nb?'<span class="nb">'+s+'</span>':s).join('');hudH();}}   // 分数一变就要重写"还差几分";这行长数变了,HUD 高度就变了
+/* ---------- 新手引导:每步要达成才推进,玩过的人不再教 ---------- */
+const TUT=[
+ {t:'点一下或按住拖动,风柱会跟着走',ok:()=>tutMoved>250},
+ {t:'先吃 5 件小花小草,分数会开始涨',ok:()=>eaten>=5},   // 别说"变大":LV.2 要 12 分,吃 5 件还不会变大
+ {t:'带圈的是现在吃不动的,先绕开',ok:()=>lockSeen>0},    // 撞上一次锁圈就算学会,不必等到升级那一刻
+ {t:'继续吃,长大就能卷汽车和树了',ok:()=>ateBig>0},      // 真卷起第一件 tier≥3 才算数,而不是"到了 LV.3"
+ {t:'右下角金点是电视塔,卷它要 LV.8',ok:()=>level>=8,max:120}];   // 末级要等 LV8,曲线拉长后 45 秒兜底会把 ✓ 提前打上
+let tutStep=0,tutOn=false,tutMoved=0,tutLastX=0,tutLastZ=0,tutHold=0,tutAge=0,lockSeen=0,ateBig=0,tutEsc=0;
+function tutActive(){return tutOn&&phase==='play'&&mode==='campaign'&&tutStep<TUT.length}
+function showTut(){const el=$('tut');
+ if(!tutActive()){el.classList.remove('on');el.classList.remove('done');return;}
+ el.classList.add('on');el.classList.toggle('done',tutHold>0);
+ $('tutn').textContent=tutStep+1;
+ $('tutt').textContent=(tutHold>0?(tutEsc?'⏭ ':'✓ '):'')+TUT[tutStep].t;}
+function tutTick(dt){
+ if(!tutActive())return;
+ tutMoved+=Math.hypot(T.x-tutLastX,T.z-tutLastZ);tutLastX=T.x;tutLastZ=T.z;
+ if(tutHold>0){tutHold-=dt;if(tutHold<=0)showTut();return;}
+ tutAge+=dt;
+ const earned=TUT[tutStep].ok();               // ✓ 只发给真做到的那一步
+ if(earned||tutAge>(TUT[tutStep].max||45)){   // 卡住也要放行,别让引导变成路障
+  tutEsc=earned?0:1;tutHold=.9;chime();showTut();tutStep++;tutAge=0;
+  if(tutStep>=TUT.length){tutOn=false;setTimeout(showTut,950);}}}
+function startTutorial(){
+ tutOn=!(stats.runs>0);              // 老玩家不再被教一遍
+ stats.runs=(stats.runs||0)+1;saveStats();
+ tutStep=0;tutMoved=0;tutLastX=T.x;tutLastZ=T.z;tutHold=0;tutAge=0;lockSeen=0;ateBig=0;tutEsc=0;showTut();}
 function showHint(txt,dur){
  if(hintTO&&$('hint').style.opacity=='1'&&$('hint').textContent===txt)return; // 同文连弹去重
  $('hint').textContent=txt;$('hint').style.opacity=1;
  clearTimeout(hintTO);hintTO=setTimeout(()=>$('hint').style.opacity=0,dur||2200);}
+function clearMsgs(){clearTimeout(hintTO);hintTO=null;hintT=0;
+ const h=$('hint');if(h){h.style.opacity=0;h.textContent='';}
+ const b=$('banner');if(b)b.classList.remove('show');}
 function banner(txt){const b=$('banner');b.textContent=txt;b.classList.remove('show');
  void b.offsetWidth;b.classList.add('show');}
 function fmt(s){s=Math.max(0,s);const m=(s/60)|0,ss=(s%60)|0;return m+':'+String(ss).padStart(2,'0');}
-function saveBest(){try{localStorage.setItem('tornadoBest',best)}catch(e){}}
+/* 本局用时那一格:游玩中由 update() 写,暂停/结算这些 update() 不再跑的时刻由写状态的人自己来叫 ——
+   两处共用一个出口,免得暂停屏说 0:05 而 HUD 还停在 0:02(实测改前正是这样)。 */
+function showClock(){const el=$('clockv');if(!el)return;const t=fmt(elapsed);if(el.textContent!==t)el.textContent=t;}
+/* 两行「最佳」读数由写它的人负责重画 —— 同一个文件里 pushHistory() 就是自己调 renderHistory() 的。
+   以前只有 boot 那一次进 DOM:破了限时纪录回主菜单,「⏱ 挑战最佳」还停在上一局的数,要刷新页面才对得上;
+   而 win() 又用自己的话把 #best 改写成「最高分」,同一个元素在刷新前后是两句说法。
+   名字也从"闯关"改成"单局":consume() 在闯关/夜城/无尽/雪原/限时(结算前)五种局里都会抬高这个数。 */
+function renderBests(){
+ $('best').textContent='🏆 单局最佳 '+best;
+ $('bestRush').textContent='⏱ 挑战最佳 '+rushBest;}
+function saveBest(){try{localStorage.setItem('tornadoBest',best)}catch(e){}renderBests();}
 /* ---------- 存档续玩 ---------- */
 const SKEY='tornadoRun';
-let destroyedIds=[],scarList=[],stumpList=[],saveCool=0;
-function saveRun(){if(phase!=='play'||mode!=='campaign')return;
+let destroyedIds=[],scarList=[],stumpList=[],saveCool=0,retired=0;
+/* 写失败以前被 catch(e){} 整个吞掉:实测装上"setItem 抛 QuotaExceededError"之后,
+   局内 203 分、盘上还是 3 分,而暂停卡照旧说「进度已存档,回主菜单可点「▶ 继续上次」」——
+   那句话承诺的动作根本没发生。saveRun 现在把结果说出来,psaveText 照着讲。
+   (iOS 隐私模式、站点数据被禁、配额满,真机上都会走到 catch 这一支。) */
+let saveFailed=false;
+function saveRun(){if(retired||(phase!=='play'&&phase!=='paused')||mode!=='campaign')return null; // 退役的局:免费探索也不许再写回来
  try{localStorage.setItem(SKEY,JSON.stringify({v:1,seed:citySeed,
   d:destroyedIds.slice(-800),sc:scarList.slice(-50),st:stumpList.slice(-60),
   w:wrecks.filter(w=>w.landed).slice(-60).map(w=>[w.k,
@@ -1457,17 +1719,26 @@ function saveRun(){if(phase!=='play'||mode!=='campaign')return;
    +w.m.rotation.x.toFixed(2),+w.m.rotation.z.toFixed(2),
    +w.m.scale.x.toFixed(2),+w.m.scale.y.toFixed(2),+w.m.scale.z.toFixed(2)]),
   rs:RV.score,rx:Math.round(RV.x),rz:Math.round(RV.z),
-  score,eaten,px:Math.round(T.x),pz:Math.round(T.z),t:Math.round(elapsed)}))}catch(e){}}
+  score,eaten,cb:runCombo,n:isNight?1:0,px:Math.round(T.x),pz:Math.round(T.z),t:Math.round(elapsed)}));
+  saveFailed=false;return true}catch(e){saveFailed=true;return false}}
 function loadRun(){try{return JSON.parse(localStorage.getItem(SKEY))}catch(e){return null}}
-function clearRun(){destroyedIds=[];scarList=[];stumpList=[];
+function clearRun(){retired=1;destroyedIds=[];scarList=[];stumpList=[];
  try{localStorage.removeItem(SKEY)}catch(e){}}
+function renderCont(){const s=loadRun(),el=$('cont');if(!el)return;
+ const on=!!(s&&s.seed);el.style.display=on?'block':'none';
+ if(on)el.textContent='▶ 继续上次 · '+MODES[s.n?'night':'campaign'].nm; // 名字取自 MODES,这里不抄字面量
+ cardFade();} // 这一行亮起来会把卡片撑高 33~54px,"下面还有"的内阴影线索必须跟着重算(实测旧写法漏算)
 function continueGame(){const s=loadRun();if(!s||!s.seed)return startGame();
- reset(s.seed);mode='campaign';$('timerbox').style.display='none';
+ reset(s.seed);mode='campaign';
+ // 夜城的 mode 字符串就是 'campaign',所以续玩必须自己把夜装回来 ——
+ // 实测改前:同一座城、同一份分数回来了,而 isNight/雾色/曝光/半球光/太阳色/nightK 十项全掉回白天
+ isNight=!!s.n;applyNight();
+ $('timerbox').style.display='none';
  const ds=new Set(s.d||[]);
  for(const o of objects){if(ds.has(o.id)){o.state='gone';o.node.visible=false;}}
  for(const sc of (s.sc||[]))addScar(sc[0],sc[1],sc[2]);
  for(const st of (s.st||[]))addStump(st[0],st[1]);
- score=s.score||0;eaten=s.eaten||0;
+ score=s.score||0;eaten=s.eaten||0;runCombo=s.cb||0;   // 续玩要接上本局连击峰值,否则结算卡会低估这一局
  for(const wv of (s.w||[])){
   const pool=POOLS.find(pp=>pp.k===wv[0])||POOLS[0];
   const m=new THREE.Mesh(pool.geo,pool.mat);
@@ -1480,6 +1751,8 @@ function continueGame(){const s=loadRun();if(!s||!s.seed)return startGame();
  camera.position.set(T.x+320,300,T.z+460);
  phase='play';startT=performance.now()/1000-s.t;
  $('menu').classList.add('hidden');$('win').classList.add('hidden');
+ $('pause').classList.add('hidden');setChrome(true);lockHintT=5;
+ tutOn=false;showTut();          // 回来续玩的人是老玩家,不再教
  showHint('欢迎回来,继续毁灭吧!',2600);}
 
 function colsOf(o){const cs=[];o.node.traverse(c=>{
@@ -1487,27 +1760,37 @@ function colsOf(o){const cs=[];o.node.traverse(c=>{
  return cs.length?cs:[0x9a9a9a];}
 function burstCols(kind,cs,n){spawnDebris(kind,cs,n);}
 function levelUp(){$('lvname').textContent='LV.'+level+' · '+LVN[level-1];
+ for(const o of objects)o.locked=0;lockHintT=1.2;showUnlock(); // 升级后允许重新解释一次
  banner('升级!LV.'+level+' '+LVN[level-1]);chime();vib(60);burstCols('concrete',null,12);statline();saveRun();}
-const KINDNAMES={car:'汽车',bus:'公交',truck:'卡车',house_s:'房子',house_b:'大宅',bld_m:'大楼',bld_l:'高楼',sky:'摩天楼',tree_s:'树木',tree_b:'大树',bush:'灌木',flower:'花',grass:'草',rock:'石块',boulder:'巨岩',bench:'长椅',lamp:'路灯',trash:'垃圾桶',bike:'单车',water:'水塔',ped:'行人',pedbike:'骑车人',pedcrouch:'市民',palm:'棕榈',umbrella:'遮阳伞',snowman:'雪人',skier:'滑雪者'};
+const KINDNAMES={landmark:'黄金电视塔',car:'汽车',bus:'公交',truck:'卡车',house_s:'房子',house_b:'大宅',bld_m:'大楼',bld_l:'高楼',sky:'摩天楼',tree_s:'树木',tree_b:'大树',bush:'灌木',flower:'花',grass:'草',rock:'石块',boulder:'巨岩',bench:'长椅',lamp:'路灯',trash:'垃圾桶',bike:'单车',water:'水塔',ped:'行人',pedbike:'骑车人',pedcrouch:'市民',palm:'棕榈',umbrella:'遮阳伞',snowman:'雪人',skier:'滑雪者'};
 let kindStats={};
 function consume(o){score+=o.pts;eaten++;stats.eaten++;kindStats[o.k]=(kindStats[o.k]||0)+1;
  if(comboN>stats.maxCombo)stats.maxCombo=comboN;
- if(score>best){best=score;saveBest();}
+ if(comboN>runCombo)runCombo=comboN;   // 本局峰值:结算卡要说"这一局"的连击,不是账号累计的
+ if(score>best&&!(mode==='rush'&&rushEnded)){best=score;saveBest();}
+ // ↑ 限时挑战结算之后点「继续闲逛」的那段没有时间限制,不该再把全局最高分抬上去
+ // (实测:4671 分结算 → 闲逛 75 秒到 8384,而"挑战最佳"停在 4669,两个数自相矛盾)
  checkAchv();
  comboN=comboT>0?comboN+1:1;comboT=2.2;
- ftext(T.x,150*Math.pow(T.r/26,.75)*.7,T.z,'+'+o.pts);
- if(comboN>=3)ftext(T.x,150*Math.pow(T.r/26,.75)*.9+42,T.z,'连击 ×'+comboN);
+ ftext(T.x,150*Math.pow(T.r/26,.75)*.7,T.z,'+'+o.pts,o.pts);
  burstCols(POOLMAP[o.k]||'concrete',colsOf(o),1+((Math.random()*2)|0));
  if(o.tier<=2)popSnd(o);else crackSnd(POOLMAP[o.k]||'concrete');
- if(o.tier>=3){shake=Math.min(13,shake+3+o.r*.07);vibTier(o.tier);fovKick=6;}
+ if(o.tier>=3){
+  ateBig=1;                                     // 引导第 4 步的证人:真卷起过一件大件
+  const ratio=Math.min(1,o.r/Math.max(1,T.r)); // 相对自己有多大,而不是绝对半径
+  shake=Math.min(1,shake+.16+ratio*.5);
+  if(!reduceMotion)hitstop=Math.min(.22,.03+ratio*.05);
+  funnelPulse=Math.min(.3,.07+ratio*.2);
+  vibTier(o.tier);fovKick=6;}
  if(o.k==='landmark'&&mode==='campaign')win();
  if(o.k==='landmark'&&mode==='endless'){o.state='idle';o.t=0;}}
-function endRush(){phase='win';pushHistory('限时',score,120-rushT);
+function endRush(){phase='win';pushHistory(runLabel(),score,120-rushT);
  const bgUrl2=snapshotCity();setWinBg(bgUrl2);lastRuinUrl=bgUrl2;
  const pre2=new Image();pre2.src=bgUrl2;
  const rec=score>rushBest;
- if(rec)rushBest=score;
- try{localStorage.setItem('tornadoBestRush',rushBest)}catch(e){}
+ if(rec){rushBest=score;
+  try{localStorage.setItem('tornadoBestRush',rushBest)}catch(e){}
+  renderBests();} // 破纪录的这一刻就重画:菜单不许等到刷新页面才认账
  $('winTitle').textContent='⏱ 时间到!';
  $('stats').innerHTML='<div class="st"><b>'+score+'</b><span>本局得分</span></div>'+
   '<div class="st"><b>'+eaten+'</b><span>吞噬物件</span></div>'+
@@ -1515,17 +1798,25 @@ function endRush(){phase='win';pushHistory('限时',score,120-rushT);
  $('rec').style.display=rec?'block':'none';
  lastIsRecord=rec;
  $('timerbox').style.display='none';
+ $('rushgoal').style.display='none'; // 结算屏不再报目标:update() 到 phase='win' 就不跑了,谁写下这个状态谁负责收
  $('win').classList.remove('hidden');
  saveStats();}
 
 function kindLine(){const top=Object.entries(kindStats).sort((a,b)=>b[1]-a[1]).slice(0,4);
- if(!top.length)return '';
- return '<div style="font-size:12px;opacity:.8;margin:4px 0 10px;line-height:1.7">摧毁:'
-  +top.map(([k,n])=>(KINDNAMES[k]||k)+'×'+n).join(' · ')+'</div>';}
+ // 结算卡只有三格:明细这行小字也住在同一个 flex 行里,不给它 width:100% 让它自己占一行,
+ // 它就会按 min-content 把三个格子挤扁(实测每格 38~49px,"本局得分"这种四字标签被迫折两行,
+ // 390 与 844 视口一样)。第 25 轮把它记成"第四格太挤",本轮量出真机制后由 .stats 的 flex-wrap 配合解决。
+ const parts=top.length?['摧毁:'+top.map(([k,n])=>(KINDNAMES[k]||k)+'×'+n).join(' · ')]:[];
+ if(runCombo>=3)parts.push('最高连击 ×'+runCombo);
+ return parts.length?'<div style="width:100%;font-size:12px;opacity:.8;margin:4px 0 10px;line-height:1.7">'
+  +parts.join(' · ')+'</div>':'';}
 
 function pushHistory(m,sc,secs){if(!stats.history)stats.history=[];
  stats.history.unshift({m,s:sc,t:Math.round(secs)});
- stats.history=stats.history.slice(0,5);saveStats();}
+ stats.history=stats.history.slice(0,5);saveStats();
+ // 记完就要在菜单上看得见:renderHistory 以前只在开机跑一次,于是"最近战绩"里
+ // 那一局永远要刷新页面才出现 —— 而"我刚才那局去哪了"正是这条要回答的问题
+ renderHistory();if($('moreBtn'))$('moreBtn').textContent=moreSummary();}
 function genShareCard(bgUrl){
  const cv2=document.createElement('canvas');cv2.width=600;cv2.height=840;
  const g=cv2.getContext('2d');
@@ -1558,15 +1849,23 @@ function genShareCard(bgUrl){
  g.strokeStyle='rgba(255,255,255,.15)';g.lineWidth=1;
  g.beginPath();g.moveTo(80,y0+225);g.lineTo(520,y0+225);g.stroke();
  g.fillStyle='rgba(255,255,255,.85)';g.font='600 26px system-ui';
- g.fillText('吞噬 '+eaten+' 件 · 用时 '+fmt(elapsed),300,y0+262);
+ // 战报卡上原本没有模式:夜城/雪原/限时那一局的卡与闯关长得一模一样,分享出去之后连自己都分不出
+ // 这是哪条路(和第 23 轮"历史里夜城被记成闯关"同一族)
+ g.fillText(runLabel()+' · 吞噬 '+eaten+' 件 · 用时 '+fmt(elapsed),300,y0+262);
  const top=Object.entries(kindStats).sort((a,b)=>b[1]-a[1]).slice(0,3);
  g.font='600 24px system-ui';g.fillStyle='rgba(255,215,94,.9)';
  top.forEach(([k,n],i)=>{g.fillText((KINDNAMES[k]||k)+' ×'+n,300,y0+310+i*38);});
  g.fillStyle='rgba(255,255,255,.35)';g.font='500 18px system-ui';
- g.fillText(new Date().toLocaleDateString('zh-CN'),300,700);
+ // 页脚往下挪:带截图的卡上 y0=330,摧毁列表三项的基线在 640/678/716,原来日期写在 700
+ // 那一条会与第三项的字身位重叠(24px 字从 ~696 起)
+ g.fillText(new Date().toLocaleDateString('zh-CN'),300,740);
  g.fillStyle='rgba(255,255,255,.25)';g.font='500 15px system-ui';
- g.fillText('WebGL · 单文件 · V2.6',300,780);
- $('shareImg').src=cv2.toDataURL('image/png');
+ g.fillText('WebGL · 单文件 · V'+VER,300,780);
+ const url=cv2.toDataURL('image/png');
+ $('shareImg').src=url;
+ // 按钮上写的是「📥 生成战报卡」,可实测浮层里一个下载把手都没有:图只能看不能拿走,
+ // 📥 承诺的那个动作在实现里不存在(桌面要靠右键另存、手机要靠长按图片,两个都不写在屏幕上)
+ const a=$('saveCard');if(a){a.href=url;a.download='龙卷风战报-'+runLabel()+'-'+score+'分.png';}
  $('shareLayer').classList.remove('hidden');}
 function snapshotCity(){
  const op=camera.position.clone(), ol=lookT.clone();
@@ -1578,7 +1877,8 @@ function snapshotCity(){
  return url;}
 function setWinBg(url){$('win').style.backgroundImage=
  'radial-gradient(ellipse at 50% 38%,rgba(12,20,15,.55),rgba(5,9,7,.93) 78%),url('+url+')';}
-function win(){phase='win';stats.wins++;pushHistory('闯关',score,elapsed);saveStats();statline();checkAchv();
+function win(){phase='win';stats.wins++;pushHistory(runLabel(),score,elapsed);saveStats();statline();checkAchv();
+ clearRun(); // 通关的这局不该再出现在「▶ 继续上次」里
  fovKick=14; // 结局慢推镜头
  for(const bm of BLD)bm.emissiveIntensity=2.0; // 全城窗灯齐闪
  burstCols('metal',[0xffd75e],14);burstCols('wood',[0xf2f2e8],10); // 彩带连发
@@ -1594,17 +1894,17 @@ function win(){phase='win';stats.wins++;pushHistory('闯关',score,elapsed);save
    '<div class="st"><b>'+score+'</b><span>最终得分</span></div>'+kindLine();
   $('rec').style.display=rec?'block':'none';
   lastIsRecord=rec;
-  $('best').textContent='🏆 最高分 '+best;
   setWinBg(bgUrl);lastRuinUrl=bgUrl;
   const pre=new Image();pre.src=bgUrl; // 预解码,分享时同步可绘
   $('win').classList.remove('hidden');},1400);}
-function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats={};
+function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats={};runCombo=0;
+ comboN=0;comboT=0;comboShown=0;   // 新局不许继承上一局的连击链(实测:再玩一次那一刻 HUD 仍挂着 ×164)
  for(const o of objects)disposeNode(o.node);
  for(const f of fts)f.el.remove();fts.length=0;
  for(const s of scars){scene.remove(s);s.traverse(c=>{if(c.geometry)c.geometry.dispose();});}
  scars.length=0;
  for(const w of wrecks){scene.remove(w.m);if(!w.shared&&w.m.geometry)w.m.geometry.dispose();}
- wrecks.length=0;destroyedIds=[];scarList=[];stumpList=[];
+ wrecks.length=0;destroyedIds=[];scarList=[];stumpList=[];saveCool=0;retired=0; // 新局:冷却与退役位都要重来
  RV.score=0;RV.lvl=1;RV.r=20;RV.x=2400;RV.z=600;RV.tgt=null;RV.retarget=0;rival.visible=false;
  for(const pool of POOLS){
   for(let i=0;i<pool.dinf.length;i++)pool.dinf[i].on=false;
@@ -1614,41 +1914,173 @@ function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats=
   pool.mesh.instanceMatrix.needsUpdate=true;
   pool.mesh.instanceColor.needsUpdate=true;}
  T.x=T.tx=760;T.z=T.tz=2640;T.r=26;
- shake=0;hintT=0;vx=0;vz=0;
+ shake=0;hitstop=0;funnelPulse=0;hintT=0;vx=0;vz=0;
  camera.position.set(T.x+320,300,T.z+480);
  clearProbe();
  citySeed=(seed==null)?((Math.random()*1e9)|0):seed;
  withSeed(citySeed,()=>{spawnAll();});
  setupProbe();
- buildMinimap();startT=performance.now()/1000;
- $('lvname').textContent='LV.1 · '+LVN[0];$('fill').style.width='0%';}
-function startGame(m,night,snow){clearRun();mode=m||'campaign';isNight=!!night;isSnow=!!snow;applyNight();if(mode==='rush'){stats.rushPlays=(stats.rushPlays||0)+1;saveStats();checkAchv();}
+ buildMinimap();startT=performance.now()/1000;clearMsgs();
+ $('lvname').textContent='LV.1 · '+LVN[0];$('fill').style.width='0%';showUnlock();}
+function startGame(m,night,snow){clearRun();mode=m||'campaign';isNight=!!night;isSnow=!!snow;
+ lastStart={m:mode,night:isNight,snow:isSnow};
+ applyNight();if(mode==='rush'){stats.rushPlays=(stats.rushPlays||0)+1;saveStats();checkAchv();}
 reset();applySnow();phase='play';saveStats();statline();
  rushEnded=false;rushT=mode==='rush'?120:0;
- $('timerbox').style.display='none';
  $('timerbox').style.display=(mode==='rush')?'block':'none';
  $('timerbox').classList.remove('danger');
  $('timerbox').textContent='⏱ 2:00';
  $('menu').classList.add('hidden');$('win').classList.add('hidden');
- showHint(mode==='rush'?'⏱ 2 分钟,卷出最高分!':'先去吃花花草草,把自己吃大!',2600);}
-$('start').onclick=()=>{audioUnlock();if(AC&&AC.state==='suspended')AC.resume();startGame();};
- $('rush').onclick=()=>{audioUnlock();if(AC&&AC.state==='suspended')AC.resume();startGame('rush');};
-$('night').onclick=()=>{audioUnlock();if(AC&&AC.state==='suspended')AC.resume();startGame('campaign',true);};
-$('endless').onclick=()=>{audioUnlock();if(AC&&AC.state==='suspended')AC.resume();startGame('endless');};
-$('snow').onclick=()=>{audioUnlock();if(AC&&AC.state==='suspended')AC.resume();startGame('endless',false,true);};
+ $('pause').classList.add('hidden');setChrome(true);
+ lockHintT=(mode==='campaign')?8:3; // 开局先让玩家吃明白,不急着解释吃不动的
+ startTutorial();
+ if(!tutActive())showHint(mode==='rush'?'⏱ 2 分钟,卷出最高分!'
+   :mode==='endless'?'♾️ 物件会不断重生,尽管拼高分!':'先去吃花花草草,把自己吃大!',2600);}
+/* ---------- 模式选择:五个模式各有目标,选完在"开始"上说明白 ---------- */
+const MODES={
+ campaign:{m:'campaign',n:false,s:false,nm:'闯关',
+  tip:'目标:卷碎黄金电视塔就通关。进度每 4 秒自动存档,中途可续玩。'},
+ rush:{m:'rush',n:false,s:false,nm:'限时',
+  tip:'目标:2 分钟内卷出最高分。时间到立刻结算,本模式不存档。'},
+ endless:{m:'endless',n:false,s:false,nm:'无尽',
+  tip:'吃掉的物件会在远处重生,城市永不枯竭,一直拼高分。电视塔卷不动。'},
+ night:{m:'campaign',n:true,s:false,nm:'夜城',
+  tip:'目标同闯关,但全城入夜:路灯和窗灯是主要光源,能看清的范围更小。'},
+ snow:{m:'endless',n:false,s:true,nm:'雪原',
+  tip:'目标同无尽,换成雪城:风暴越大雪雾越浓,满级时几乎看不见路。'}};
+let pick='campaign';
+function setPick(k){if(!MODES[k])return;pick=k;CFG.mode=k;saveCfg(); // 选模式这件事也归 CFG 那条通道管
+ for(const c of document.querySelectorAll('#modes .chip'))
+  c.classList.toggle('on',c.dataset.k===k);
+ $('modeinfo').textContent=MODES[k].tip;
+ $('start').textContent='开始游戏 · '+MODES[k].nm;cardFade();}
+$('start').onclick=()=>{audioUnlock();if(AC&&AC.state==='suspended')AC.resume();
+ const t=MODES[pick];startGame(t.m,t.n,t.s);};
 $('cont').onclick=()=>{audioUnlock();if(AC&&AC.state==='suspended')AC.resume();continueGame();};
-$('again').onclick=()=>startGame();
+function moreSummary(){const got=ACHV.filter(a=>stats.achv[a.id]).length;
+ return ($('more').classList.contains('open')?'▾ ':'▸ ')+'成就 '+got+'/'+ACHV.length+
+  ' · 最近 '+(stats.history||[]).length+' 局';}
+$('moreBtn').onclick=()=>{$('more').classList.toggle('open');
+ $('moreBtn').textContent=moreSummary();setTimeout(cardFade,360);};
+function initHowto(){const touch=matchMedia('(pointer:coarse)').matches;
+ $('howto').innerHTML=(touch?
+   '<p><em>👆</em>点一下想去的方向,或按住拖动;风柱露在指尖上方</p>':
+   '<p><em>🖱️</em>按住鼠标拖动,或用 WASD / 方向键</p>')+
+  '<p><em>🌼</em>先吃小花小草石头,越吃越大</p>'+
+  '<p><em>🚗</em>长大后,汽车、房子全都能卷上天</p>'+
+  // 小地图那两层点没有图例就没有含义;这行把"亮/暗"和场景里的琥珀锁圈挂成同一套语言。
+  // 行数不许增加:第 5A 轮的"不滚也能玩"是拿 0px 余量换来的,加一行就把菜单顶出首屏。
+  '<p><em>🔒</em>吃不动的:场景里亮琥珀圈,地图上是暗点</p>';}
+/* 卡片还能往下滚时,给它一道内阴影当"下面还有"的线索。
+   两处滚动容器:#menu 的卡整卡在滚,#settings 从第 42 轮起只有 .setbody 在滚(出口不跟着滚)。 */
+const FADERS=()=>['#menu .card','#settings .setbody'].map(s=>document.querySelector(s)).filter(Boolean);
+function cardFade(){for(const c of FADERS())c.classList.toggle('scrolly',
+ c.scrollHeight>c.clientHeight+4 && c.scrollTop+c.clientHeight<c.scrollHeight-6);}
+for(const c of FADERS())c.addEventListener('scroll',cardFade);
+addEventListener('resize',cardFade);
+$('foot').textContent='龙卷风大作战 3D · V'+VER;
+$('again').onclick=()=>startGame(lastStart.m,lastStart.night,lastStart.snow);
 let lastRuinUrl=null;
 let lastIsRecord=false;
 $('share').onclick=()=>genShareCard(lastRuinUrl);
 $('shareClose').onclick=()=>$('shareLayer').classList.add('hidden');
-$('free').onclick=()=>{$('win').classList.add('hidden');phase='play';startT=performance.now()/1000-elapsed;};
-$('rst').onclick=()=>{if(phase!=='menu')startGame();};
+$('free').onclick=()=>{$('win').classList.add('hidden');phase='play';startT=performance.now()/1000-elapsed;
+ // 闲逛段要看得出现在是闲逛:计时的盒子回来报"已结束",而不是凭空消失
+ if(mode==='rush'&&rushEnded){const tb=$('timerbox');tb.style.display='block';
+  tb.classList.remove('danger');tb.textContent='⏱ 已结束 · 不计纪录';}};
+
+/* ---------- 暂停 / 回菜单 ---------- */
+let lastStart={m:'campaign',night:false,snow:false},pauseAt=0;
+/* 模式名只有一个来源:写"最近战绩"、暂停卡上的「重新开始」、存档提示都问它。
+   以前 win() 里写死 '闯关',于是夜城那一局在历史里和闯关长得一模一样(实测历史行
+   "闯关·1681分·23s" 其实是夜城)。 */
+function runLabel(){return mode==='rush'?'限时挑战':mode==='endless'?(isSnow?'雪原':'无尽'):(isNight?'夜城':'闯关')}
+function setChrome(on){$('hud').classList.toggle('off',!on);$('mm').classList.toggle('off',!on);
+ $('timerbox').classList.toggle('off',!on);$('rvpill').classList.toggle('off',!on);}
+function psaveText(){if(mode!=='campaign')return mode==='rush'
+  ?'限时模式不存档,重新开始会清空本局':'该模式不存档,回主菜单会把这一局记进「最近战绩」';
+ // 存不上的时候不许说"已存档" —— 那句话承诺的动作在设备上根本没发生:
+ // 实测装上写失败后,局内 203 分、盘上仍是 3 分,而菜单照样给出「▶ 继续上次」,点进去是更早的一局。
+ if(saveFailed)return '⚠ 这台设备没能存下这一局(浏览器禁止保存或空间已满)'
+  +(loadRun()?'；「继续上次」只会回到更早的进度':'；回主菜单也不会有「▶ 继续上次」');
+ return '进度已存档,回主菜单可点「▶ 继续上次」';}
+/* 「重新开始」过去是一键毁档:实测点一次之后存档键消失、分数 64→0、卷掉的城市重新长回来,
+   而竖屏暂停卡上它离「继续游戏」只有 59px。首点现在只把按钮变成待确认,二点才真重开。 */
+let armTO=0;
+function disarmRestart(){const el=$('prestart');clearTimeout(armTO);armTO=0;
+ if(el&&el.dataset.armed){delete el.dataset.armed;el.textContent='重新开始 · '+runLabel();
+  $('psave').textContent=psaveText();}}
+function pauseGame(){if(phase!=='play')return;
+ disarmRestart();       // 每次打开暂停屏都从"一步"开始,不许留着上一次的待确认态
+ phase='paused';pauseAt=performance.now()/1000;saveRun();
+ // 暂停这一刻 HUD 那格也要跟上:update() 在暂停后不再跑,不补这一刀就会出现"暂停屏 0:05 / HUD 0:02"
+ showClock();
+ $('pstats').innerHTML='<div class="st"><b>'+score+'</b><span>当前得分</span></div>'+
+  '<div class="st"><b>'+eaten+'</b><span>已吞噬</span></div>'+
+  '<div class="st"><b>'+fmt(elapsed)+'</b><span>已用时</span></div>';
+ $('psave').textContent=psaveText();
+ $('prestart').textContent='重新开始 · '+runLabel();
+ $('pause').classList.remove('hidden');}
+function resumeGame(){if(phase!=='paused')return;disarmRestart();
+ $('pause').classList.add('hidden');
+ startT+=performance.now()/1000-pauseAt; // 暂停的那段时间不计入本局
+ phase='play';}
+function togglePause(){if(phase==='play')pauseGame();else if(phase==='paused')resumeGame();}
+function toMenu(){disarmRestart();saveRun(); // 先落盘再决定「继续上次」给不给:刚吃的东西不该因为没到自动存档点而丢掉
+ // 无尽/雪原没有结算屏,"回主菜单"就是这一局的终点 —— 不记一笔的话实测两局
+ // 6957 / 4792 分打完,"最近战绩"里查无此局(历史是空数组)
+ if(mode==='endless'&&(phase==='play'||phase==='paused')&&score>0)
+  pushHistory(runLabel(),score,elapsed);
+ phase='menu';$('pause').classList.add('hidden');$('win').classList.add('hidden');
+ $('menu').classList.remove('hidden');setChrome(false);
+ renderCont();cardFade();}
+$('pp').onclick=togglePause;
+$('presume').onclick=resumeGame;
+$('prestart').onclick=()=>{const el=$('prestart');
+ if(el.dataset.armed){disarmRestart();$('pause').classList.add('hidden');
+  startGame(lastStart.m,lastStart.night,lastStart.snow);return;}
+ el.dataset.armed='1';el.textContent='⚠ 再点一次确认';
+ // 文案要说清"再点会丢什么",而且不能承诺一个这个模式根本没有的动作(限时/无尽不存档)
+ $('psave').textContent=(mode==='campaign'?'再点一次会丢掉本局进度(存档随之清除)'
+  :'再点一次会立刻重开这一局')+';不想重开就点「继续游戏」';
+ armTO=setTimeout(disarmRestart,4000);};
+$('pmenu').onclick=toMenu;
+
+/* ---------- 设置面板 ---------- */
+function renderSettings(){
+ $('sMaster').value=CFG.master;$('sSfx').value=CFG.sfx;$('sAmb').value=CFG.amb;
+ $('sMasterV').textContent=CFG.master;$('sSfxV').textContent=CFG.sfx;$('sAmbV').textContent=CFG.amb;
+ for(const p of [['sQ','quality'],['sR','reduce']])
+  for(const c of document.querySelectorAll('#'+p[0]+' .chip'))
+   c.classList.toggle('on',c.dataset.v===CFG[p[1]]);
+ $('sVib').classList.toggle('on',CFG.vib);$('sCb').classList.toggle('on',CFG.cb);
+ $('sVib').textContent=(CFG.vib?'✓ ':'')+'📳 震动反馈';
+ $('sCb').textContent=(CFG.cb?'✓ ':'')+'🎨 色盲友好描边';
+ $('sNote').textContent=CFG.reduce==='auto'
+  ? '减弱动效跟随系统设置(本机系统:'+(sysReduce()?'减少动效':'标准')+')'
+  : '已手动设为'+(CFG.reduce==='on'?'减弱动效 — 不顿帧、不震屏、闪光减弱':'标准动效');}
+function openSettings(){if(phase==='play')pauseGame();
+ $('settings').classList.remove('hidden');renderSettings();
+ cardFade();}   // 面板刚显形才量得到 scrollHeight:滚动线索不能等下一次 resize 才补
+function closeSettings(){$('settings').classList.add('hidden');}
+for(const p of [['sMaster','master'],['sSfx','sfx'],['sAmb','amb']])
+ $(p[0]).oninput=e=>{CFG[p[1]]=+e.target.value;saveCfg();applyCfg();};
+for(const p of [['sQ','quality'],['sR','reduce']])
+ for(const c of document.querySelectorAll('#'+p[0]+' .chip'))
+  c.onclick=()=>{CFG[p[1]]=c.dataset.v;saveCfg();applyCfg();blip(600,760,.05,.05,'sine');};
+$('sVib').onclick=()=>{CFG.vib=!CFG.vib;saveCfg();applyCfg();vib(30);};
+$('sCb').onclick=()=>{CFG.cb=!CFG.cb;saveCfg();applyCfg();};
+$('sReset').onclick=()=>{CFG=Object.assign({},CFGD);saveCfg();applyCfg();setPick(CFG.mode);}; // 恢复默认也包含"上次模式",芯片必须跟着改口,不然屏幕和存档各说一套
+$('sClose').onclick=closeSettings;
+$('cfg').onclick=openSettings;$('pcfg').onclick=openSettings;
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();
+ if(k==='escape'&&!$('settings').classList.contains('hidden')){closeSettings();return;}
+ if(k==='escape'||k==='p'){e.preventDefault();togglePause();}});
 $('snd').onclick=()=>{muted=!muted;$('snd').textContent=muted?'🔇':'🔊';
  try{localStorage.setItem('tornadoMuted',muted?'1':'0')}catch(e){}};
 
 /* ---------- 主更新 ---------- */
-function update(dt){const p=Math.min(1,score/TH[7]);
+function update(dt){elapsed=performance.now()/1000-startT;const p=Math.min(1,score/TH[7]);
  T.r=26+124*Math.pow(p,.65);
  let lv=1;for(let i=1;i<TH.length;i++)if(score>=TH[i])lv=i+1;
  if(lv>level){level=lv;levelUp();}
@@ -1658,14 +2090,17 @@ function update(dt){const p=Math.min(1,score/TH[7]);
   T.tx=clamp(T.x+kx/m*300,40,WORLD-40);T.tz=clamp(T.z+ky/m*300,40,WORLD-40);}
  const dx=T.tx-T.x,dz=T.tz-T.z,d=Math.hypot(dx,dz);
  vx=0;vz=0;
- if(d>6){const spd=Math.max(140,255-T.r*.75),v=Math.min(spd,d*6);
+ if(d>6){const spd=Math.max(200,258-T.r*.39),v=Math.min(spd,d*6);
   vx=dx/d*v;vz=dz/d*v;T.x+=vx*dt;T.z+=vz*dt;}
- shake=Math.max(0,shake-dt*26);hintT-=dt;
- comboT-=dt;saveCool-=dt;if(comboT<=0)comboN=0;
+ shake*=Math.exp(-dt*3.4);if(shake<1e-4)shake=0; // 指数衰减:线性尾巴会让小撞击"拖一下"
+ hintT-=dt;lockHintT-=dt;updateLockRings();tutTick(dt);
+ comboT-=dt;saveCool-=dt;if(comboT<=0)comboN=0;showCombo();
+ $('combobar').style.transform='scaleX('+Math.max(0,comboT/2.2).toFixed(3)+')';
+ rushGoal();
  if(saveCool<=0&&phase==='play'&&score>0&&mode==='campaign'){saveRun();saveCool=4;}
  if(mode==='rush'&&!rushEnded&&phase==='play'){
-  rushT-=dt;
-  if(rushT<=0){rushT=0;rushEnded=true;endRush();}
+  rushT=Math.max(0,120-elapsed); // 倒计时按墙钟走,低帧率设备不会被拖长
+  if(rushT<=0){rushEnded=true;endRush();}
   else{const t=Math.ceil(rushT);
    $('timerbox').textContent='⏱ '+fmt(t);
    $('timerbox').classList.toggle('danger',rushT<10);}}
@@ -1699,8 +2134,8 @@ function update(dt){const p=Math.min(1,score/TH[7]);
     o.node.rotation.z=Math.sin(time*26+o.seed)*.12;
     o.node.rotation.y=o.seed;}}}
  for(const o of objects){if(o.state!=='idle')continue;
-  if(mode==='endless'&&o.k==='landmark')continue;
-  const dd=Math.hypot(o.x-T.x,o.z-T.z),can=o.tier<=level;
+  const dd=Math.hypot(o.x-T.x,o.z-T.z),
+        can=o.tier<=level&&!(o.k==='landmark'&&!towerEdible());
   if(can&&dd<range+o.r){o.t=0;o.d0=Math.max(18,dd);
    o.a0=Math.atan2(o.z-T.z,o.x-T.x);o.dur=.75+o.r/110;o.rs=rnd(4.5,8);
    if(o.k.indexOf('ped')!==0&&!o.axis)destroyedIds.push(o.id);
@@ -1709,13 +2144,25 @@ function update(dt){const p=Math.min(1,score/TH[7]);
     spawnDebris('stone',null,2);creakSnd();
    }else{o.state='sucked';
     if(o.k==='tree_s'||o.k==='tree_b'){addStump(o.x,o.z);stumpList.push([Math.round(o.x),Math.round(o.z)]);}}}
-  else{if(!can&&dd<range+o.r+70){o.lock=1.1;
-   if(hintT<=0){showHint('等级不够!先吃点小的,长大后再来卷它');hintT=3.2;}}
-   if(can&&dd<range*1.7){o.node.rotation.z=Math.sin(time*14+o.seed)*.045;
-    o.x+=(T.x-o.x)*dt*.35;o.z+=(T.z-o.z)*dt*.35;
+  else{if(!can&&dd<range+o.r){ // 真的撞上了才说,不是"附近有个大的"就唠叨
+   lockSeen=1;                 // 引导第 3 步的证人:撞上过吃不动的(提示有冷却,证人没有)
+   if(lockHintT<=0&&!o.locked){o.locked=1;
+    // 卷不动的塔不能报"需要 LV.8,还差 0 级"这种自相矛盾的话:它在这个模式根本没有等级门槛
+    showHint(o.k==='landmark'&&!towerEdible()
+      ?'🔒 电视塔在这个模式卷不动,专心刷大件'
+      :'🔒 '+(KINDNAMES[o.k]||o.k)+' 需要 LV.'+o.tier+',还差 '+(o.tier-level)+' 级',2800);
+    lockHintT=7;}}
+   // 低等级的"嘴"只有 60 单位,而地图 3200 —— 不给一点预吸,真人画圈 15 秒只吃到 4 件
+   if(can&&dd<range*(1.7+.9*(1-Math.min(1,(level-1)/3)))){
+    const pk=dt*(.35+.18*(1-Math.min(1,(level-1)/3)));
+    o.node.rotation.z=Math.sin(time*14+o.seed)*.045;
+    o.x+=(T.x-o.x)*pk;o.z+=(T.z-o.z)*pk;
     o.node.position.x=o.x;o.node.position.z=o.z;}
    else if(o.node.rotation.z)o.node.rotation.z*=.8;}}
  for(let i=objects.length-1;i>=0;i--){const o=objects[i];
+  // 结算就到此为止:consume 里会调 win()/endRush(),而这一帧后面还有半截列表没走完。
+  // 实测漏出去的分数:限时结算卡"本局得分 4671"对不上"挑战最佳 4669",夜城历史 1681 对不上屏幕 2131
+  if(phase!=='play')break;
   if(o.state==='shake'){ // 摇晃松动阶段
    o.t+=dt;const kk=1+(o.t/(o.shakeDur||.8))*1.6;
    if(o.t>=o.shakeDur){o.state='sucked';o.t=0;startTear(o);continue;}
@@ -1759,11 +2206,13 @@ function update(dt){const p=Math.min(1,score/TH[7]);
    o.node.scale.setScalar(scl);}}
  updateTornadoVisual(dt);
  lightning(dt);
- const se=$('score');
- if(se.textContent!=String(score)){se.textContent=score;
+ const se=$('score'), wasScore=se.textContent;
+ if(wasScore!=String(score)){se.textContent=score;
   se.classList.remove('bump');void se.offsetWidth;se.classList.add('bump');}
  $('cnt').textContent=eaten;
- $('fill').style.width=(level<8?(score-TH[level-1])/(TH[level]-TH[level-1])*100:100)+'%';}
+ showClock(); // 本局用时:无尽/雪原没有终点,限时靠倒计时,只有这格能让玩家知道"我已经玩了多久"(probe62:改前游玩中零处报时)
+ $('fill').style.width=(level<8?(score-TH[level-1])/(TH[level]-TH[level-1])*100:100)+'%';
+ if(wasScore!=String(score))showUnlock();}   // "还差 N 分"跟着分数走,不能只在升级那刻写一次
 
 /* ---------- 相机 ---------- */
 const camT=V3(760,300,3120),lookT=V3(760,0,2640);
@@ -1774,12 +2223,22 @@ function updateCamera(dt){
  else{camT.set(T.x,150+T.r*2.6,T.z+235+T.r*3.6);
   lookT.lerp(_p3.set(T.x,T.r*.9,T.z),Math.min(1,dt*5));}
  camera.position.lerp(camT,Math.min(1,dt*(phase==='menu'?1.2:3.5)));
- if(shake>0){camera.position.x+=rnd(-shake,shake);camera.position.y+=rnd(-shake,shake)*.6;}
+ if(shake>0&&!reduceMotion){const amp=shake*shake*(9+T.r*.05); // 平方:小撞几乎不震;乘半径:大风暴才看得出震
+  camera.position.x+=rnd(-amp,amp);camera.position.y+=rnd(-amp,amp)*.6;}
  camera.lookAt(lookT);}
 
 /* ---------- 主循环 ---------- */
+// 低于 20fps 时,旧写法把每步钳成 .05 ⇒ 世界比墙钟慢:实测 4.6fps 的设备上 2 分钟限时只给
+// 18% 的世界时间(玩家少卷 3/4)。改成 20Hz 定步长补帧,一帧最多补 4 步(0.2s),补不上就丢掉,
+// 绝不攒成下一次的大跳;物理步长仍是 .05,不会因为补帧而穿模。
+const WSTEP=.05;
 function frame(ts){requestAnimationFrame(frame);
- const now=ts/1000,dt=Math.min(.05,now-(last||now));last=now;time+=dt;
+ const now=ts/1000,real=now-(last||now);last=now;      // 真帧时:钳掉的那截要留给画质统计,不能骗它
+ const raw=Math.min(.2,real);
+ if(phase==='paused'){audioFrame(raw);renderer.render(scene,camera);return;} // 冻结模拟,但风声增益仍要归零
+ let dt=raw;
+ if(hitstop>0){hitstop-=raw;dt=raw*(reduceMotion?.6:.14);} // 顿帧只压模拟步长;用时仍走墙钟
+ time+=dt;
  for(const c of clouds){c.position.x+=c.userData.v*dt;if(c.position.x>3400)c.position.x=-200;}
  if(waterMat.map)waterMat.map.offset.x+=dt*.018,waterMat.map.offset.y+=dt*.008;
  for(const gu of gulls){gu.a+=gu.spd*dt;gu.flap+=dt*9;
@@ -1788,9 +2247,12 @@ function frame(ts){requestAnimationFrame(frame);
   const w=Math.sin(gu.flap)*.55;
   gu.g.userData.wl.rotation.z=w;gu.g.userData.wr.rotation.z=-w;}
  if(phase==='menu')updateTornadoVisual(dt);
- else update(dt);
- qualityTick(dt);
+ else if(phase==='play'){ // 'win' 时停止推进:结算卡上的数字不能再漂移
+  let rem=dt;
+  for(let k=0;k<4&&rem>1e-4&&phase==='play';k++){const h=Math.min(WSTEP,rem);update(h);rem-=h;}}
+ qualityTick(real);  // 帧率统计要吃真帧时:吃被钳过的步长会让它永远看不见 5fps 以下这件事
  updateCamera(dt);
+ if(reduceMotion)fovKick=0; // 归零而不是跳过,否则它永远卡在 >.05 挡回默认视场
  if(fovKick>.05){camera.fov=55+fovKick;camera.updateProjectionMatrix();fovKick*=Math.exp(-dt*6);}
  else if(camera.fov!==55){camera.fov=55;camera.updateProjectionMatrix();}
  const pEsc=(phase==='menu')?0:Math.min(1,score/TH[7]);
@@ -1818,12 +2280,13 @@ function frame(ts){requestAnimationFrame(frame);
 
 /* ---------- 启动 ---------- */
 document.addEventListener('visibilitychange',()=>{
- if(document.hidden){ // 后台:静音所有持续音(增益清零),并保存进度
+ if(document.hidden){ // 后台:静音所有持续音(增益清零),自动暂停并保存进度
   if(AC){try{
    if(whGain)whGain.gain.value=0;
    if(rnGain)rnGain.gain.value=0;
    if(sirenGain)sirenGain.gain.value=0;}catch(e){}}
-  if(phase==='play')saveRun();}});
+  if(phase==='play')pauseGame();
+  dropInput();}}); // pauseGame 内部已 saveRun;顺手把键和拖动态清掉(见输入段)
 addTufts();addClouds();
 RV.pill=$('rvpill');
 // iOS 添加主屏引导(一次性)
@@ -1833,15 +2296,19 @@ try{const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
   const h=$('iosHint');h.style.display='block';
   setTimeout(()=>h.remove(),12000);
   localStorage.setItem('tossHint','1');}}catch(e){}
-$('snd').textContent=muted?'🔇':'🔊';
-spawnAll();buildMinimap();
+$('snd').textContent=muted?'🔇':'🔊';setChrome(false);applyCfg();
+spawnAll();buildMinimap();applyAniso();   // 材质都是模块级建好的,开一次就够(带 __ani 幂等,后面再调也不重复干活)
 loadGroundPhotos();
-$('best').textContent='🏆 闯关最佳 '+best;
-$('bestRush').textContent='⏱ 挑战最佳 '+rushBest;
+renderBests();
 statline();renderAchv();renderHistory();
-if(loadRun())$('cont').style.display='block';
+initHowto();setPick(MODES[CFG.mode]?CFG.mode:'campaign'); // 上次玩哪个模式就预选哪个;野值(旧档/手改的)回落闯关
+for(const c of document.querySelectorAll('#modes .chip'))
+ c.onclick=()=>{setPick(c.dataset.k);blip(520,660,.06,.05,'sine');};
+renderCont();
 if(navigator.serviceWorker&&(location.protocol==='https:'||location.hostname==='localhost')){
- addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});}
+ // 本文件是首帧画完才被注入的,那时 load 可能早已发生 —— 只等事件会把离线安装悄悄丢掉
+ const reg=()=>navigator.serviceWorker.register('sw.js').catch(()=>{});
+ if(document.readyState==='complete')reg();else addEventListener('load',reg);}
 camera.position.set(1080,300,3120);
 requestAnimationFrame(frame);
 const bootEl=$('boot');if(bootEl)bootEl.remove();
