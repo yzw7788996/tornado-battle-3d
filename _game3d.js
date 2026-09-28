@@ -1682,11 +1682,24 @@ function startTutorial(){
  tutOn=!(stats.runs>0);              // 老玩家不再被教一遍
  stats.runs=(stats.runs||0)+1;saveStats();
  tutStep=0;tutMoved=0;tutLastX=T.x;tutLastZ=T.z;tutHold=0;tutAge=0;lockSeen=0;ateBig=0;tutEsc=0;showTut();}
-function showHint(txt,dur){
+const HINTQ={prio:0,until:0,q:[]}; // #hint 是一条单槽通道:解释与杂项抢同一个格子
+function showHint(txt,dur,prio){
  if(hintTO&&$('hint').style.opacity=='1'&&$('hint').textContent===txt)return; // 同文连弹去重
+ dur=dur||2200;prio=prio||0;
+ /* "🔒 电视塔在这个模式卷不动,专心刷大件"这类**一次性解释**被后到的杂项顶掉时,玩家对这个物件永远听不到第二遍
+    (o.locked 一置,只有升级才重新放行)。实测坐实:同一构建、同一 endless、同样停在塔上,两次跑出两种提示名单。
+    ⇒ 高优解释不许被低优顶掉;低优进一个**有界**队列(FIFO,最多 3 条),等这条讲完再依次播 —— 成就提示也不许悄悄丢,
+      更不许有人刷出一条长队把后面几秒全占满(所以有上限,溢出丢最旧的一条)。 */
+ if(prio<HINTQ.prio&&performance.now()<HINTQ.until){
+  HINTQ.q.push([txt,dur]);
+  if(HINTQ.q.length>3)HINTQ.q.shift();
+  return;}
+ HINTQ.prio=prio;HINTQ.until=performance.now()+dur;
  $('hint').textContent=txt;$('hint').style.opacity=1;
- clearTimeout(hintTO);hintTO=setTimeout(()=>$('hint').style.opacity=0,dur||2200);}
-function clearMsgs(){clearTimeout(hintTO);hintTO=null;hintT=0;
+ clearTimeout(hintTO);
+ hintTO=setTimeout(()=>{const h=$('hint');if(h)h.style.opacity=0;hintTO=null;HINTQ.prio=0;
+  const n=HINTQ.q.shift();if(n)showHint(n[0],n[1]);},dur);}
+function clearMsgs(){clearTimeout(hintTO);hintTO=null;hintT=0;HINTQ.prio=0;HINTQ.q.length=0;
  const h=$('hint');if(h){h.style.opacity=0;h.textContent='';}
  const b=$('banner');if(b)b.classList.remove('show');}
 function banner(txt){const b=$('banner');b.textContent=txt;b.classList.remove('show');
@@ -2150,7 +2163,7 @@ function update(dt){elapsed=performance.now()/1000-startT;const p=Math.min(1,sco
     // 卷不动的塔不能报"需要 LV.8,还差 0 级"这种自相矛盾的话:它在这个模式根本没有等级门槛
     showHint(o.k==='landmark'&&!towerEdible()
       ?'🔒 电视塔在这个模式卷不动,专心刷大件'
-      :'🔒 '+(KINDNAMES[o.k]||o.k)+' 需要 LV.'+o.tier+',还差 '+(o.tier-level)+' 级',2800);
+      :'🔒 '+(KINDNAMES[o.k]||o.k)+' 需要 LV.'+o.tier+',还差 '+(o.tier-level)+' 级',2800,1);
     lockHintT=7;}}
    // 低等级的"嘴"只有 60 单位,而地图 3200 —— 不给一点预吸,真人画圈 15 秒只吃到 4 件
    if(can&&dd<range*(1.7+.9*(1-Math.min(1,(level-1)/3)))){
