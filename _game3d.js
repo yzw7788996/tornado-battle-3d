@@ -1443,18 +1443,24 @@ function vibTier(tier){ // 分级触感
 const keys={};
 addEventListener('keydown',e=>keys[e.key.toLowerCase()]=1);
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
-let pid=null;
+let pid=null,downX=0,downY=0;
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),
  gplane=new THREE.Plane(V3(0,1,0),0),hitP=V3(0,0,0);
-/* 手指会盖住风柱正下方那块地面:触屏时把落点往屏幕上方抬,风柱就露在指尖之上 */
+/* 手指会盖住风柱正下方那块地面:触屏时把落点往屏幕上方抬,风柱就露在指尖之上。
+   这份抬升只在"手指还压着屏幕"期间才有意义:点按抬手之后没有东西挡着了,还留着它,风柱就
+   停在玩家真正指的那一点前方几百单位外(第 64 轮 probe113 实测竖屏中位 684、横屏 562 世界
+   单位,而同一个动作鼠标臂是 0 —— 触屏与鼠标对"点这里"给出两个落点)。
+   TAP_SLOP 是"这一下算点按"的位移上限,verify53 两侧都钉住:抖 10px 必须收回精确落点、
+   拖 60px 必须保留抬升。 */
 const touchLift=()=>Math.min(170,innerHeight*.19);
+const TAP_SLOP=16;
 function setTarget(cx,cy,lift){const yy=Math.max(innerHeight*.16,cy-(lift||0));
  ndc.set(cx/innerWidth*2-1,-(yy/innerHeight)*2+1);
  ray.setFromCamera(ndc,camera);
  if(ray.ray.intersectPlane(gplane,hitP)){
   T.tx=clamp(hitP.x,40,WORLD-40);T.tz=clamp(hitP.z,40,WORLD-40);}}
 const cvs=renderer.domElement;
-cvs.addEventListener('pointerdown',e=>{pid=e.pointerId;
+cvs.addEventListener('pointerdown',e=>{pid=e.pointerId;downX=e.clientX;downY=e.clientY;
  setTarget(e.clientX,e.clientY,e.pointerType==='touch'?touchLift():0);
  audioUnlock();if(AC&&AC.state==='suspended')AC.resume();});
 // 悬停时 buttons=0(触屏拖动则恒为 1,不会被这条误伤):见到 0 就说明针早抬过了
@@ -1466,7 +1472,14 @@ cvs.addEventListener('pointermove',e=>{if(e.pointerId!==pid)return;
 // 但"听见抬手"必须挂在 window 上:触屏有浏览器隐式捕获保底,鼠标没有 ——
 // 在世界里按住、拖到 HUD 的 🔊/⏸ 上(或视口边缘的 HTML 上)松手,这次 pointerup 落在隔壁元素,
 // canvas 永远等不到 ⇒ pid 留着,之后光是移动鼠标就在拖着风柱走(实测松手后再悬停,目标又挪了 275 单位)。
-const pend=e=>{if(e.pointerId===pid)pid=null;};
+const pend=e=>{if(e.pointerId!==pid)return;
+ // 点按(指尖位移 ≤TAP_SLOP)抬手时把目的地交还给玩家真正指的那一点;拖动的抬升原样保留。
+ // 只收"点得很准"这一段,不收行程:抬手前风柱还在去目的地的路上,缩短目的地=提前停到位。
+ if(e.type==='pointerup'&&e.pointerType==='touch'&&Math.hypot(e.clientX-downX,e.clientY-downY)<=TAP_SLOP){
+  const ox=T.tx,oz=T.tz;setTarget(e.clientX,e.clientY,0);
+  // 新目的地落回自身半径里就是原地急刹,看着又成"点了没反应" —— 这种情形不改,维持原目的地
+  if(Math.hypot(T.tx-T.x,T.tz-T.z)<T.r*1.2){T.tx=ox;T.tz=oz;}}
+ pid=null;};
 addEventListener('pointerup',pend);addEventListener('pointercancel',pend);
 // keyup 更不保证送到:切去别的程序时它发给了那个程序,回到本页那根键还留着 ⇒ 风柱自己狂奔
 const dropInput=()=>{for(const k in keys)keys[k]=0;pid=null;};
