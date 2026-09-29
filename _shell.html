@@ -27,6 +27,10 @@
      同 z-index 时后挂进 body 的飘字会盖住 HUD,而倒计时是玩家要一直看的数。 */
   #hud{position:fixed;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top) + 10px) 12px 0;
     display:flex;gap:8px;align-items:stretch;pointer-events:none;z-index:8}
+  /* 第 66 轮(b):有锁圈件被这条带子压住时,整条带子淡到 .45,3 秒内没有新的压住机会再回到常态。
+     只改 opacity 不改布局,所以不会抖版面无从引起 verify17 Y6 的高度回归。 */
+  #hud{transition:opacity .35s}
+  #hud.dim{opacity:.45}
   .panel{background:linear-gradient(165deg,rgba(24,32,26,.72),rgba(10,15,11,.78));
     border:1px solid rgba(255,255,255,.13);
     backdrop-filter:blur(12px) saturate(1.25);-webkit-backdrop-filter:blur(12px) saturate(1.25);
@@ -38,8 +42,13 @@
   #scorep .sub{font-weight:500;font-size:11px;opacity:.75;margin-top:2px}
   #scorep .sub b{font-size:12px;color:#fff}
   .grow{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
-  #lvname{font-size:12.5px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-    letter-spacing:1px;opacity:.95}
+  /* 第 66 轮(a):等级名不再占常驻版面。它原本在顶带里吃掉 22px 高、156~612px 宽的一条实底,
+     而 probe121 量到这条带子在现状机位就把 11/19(竖屏)、11/21(横屏)把"正该看清的锁圈件"盖过 25%。
+     保留同一个 id(消费者不变),改成浮在带子下方的瞬时闪现:升级那 2.2 秒看得到名字,平时把视野还给世界。 */
+  #lvname{position:absolute;left:14px;top:calc(env(safe-area-inset-top) + 62px);pointer-events:none;
+    font-size:12.5px;white-space:nowrap;letter-spacing:1px;opacity:0;transition:opacity .3s;
+    text-shadow:0 1px 5px rgba(0,0,0,.75),0 0 2px rgba(0,0,0,.9)}
+  #lvname.on{opacity:.95}
   #bar{height:9px;background:rgba(255,255,255,.14);border-radius:5px;overflow:hidden;
     box-shadow:inset 0 1px 2px rgba(0,0,0,.4)}
   #fill{display:block;height:100%;width:0%;border-radius:5px;

@@ -27,6 +27,10 @@
      同 z-index 时后挂进 body 的飘字会盖住 HUD,而倒计时是玩家要一直看的数。 */
   #hud{position:fixed;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top) + 10px) 12px 0;
     display:flex;gap:8px;align-items:stretch;pointer-events:none;z-index:8}
+  /* 第 66 轮(b):有锁圈件被这条带子压住时,整条带子淡到 .45,3 秒内没有新的压住机会再回到常态。
+     只改 opacity 不改布局,所以不会抖版面无从引起 verify17 Y6 的高度回归。 */
+  #hud{transition:opacity .35s}
+  #hud.dim{opacity:.45}
   .panel{background:linear-gradient(165deg,rgba(24,32,26,.72),rgba(10,15,11,.78));
     border:1px solid rgba(255,255,255,.13);
     backdrop-filter:blur(12px) saturate(1.25);-webkit-backdrop-filter:blur(12px) saturate(1.25);
@@ -38,8 +42,13 @@
   #scorep .sub{font-weight:500;font-size:11px;opacity:.75;margin-top:2px}
   #scorep .sub b{font-size:12px;color:#fff}
   .grow{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
-  #lvname{font-size:12.5px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-    letter-spacing:1px;opacity:.95}
+  /* 第 66 轮(a):等级名不再占常驻版面。它原本在顶带里吃掉 22px 高、156~612px 宽的一条实底,
+     而 probe121 量到这条带子在现状机位就把 11/19(竖屏)、11/21(横屏)把"正该看清的锁圈件"盖过 25%。
+     保留同一个 id(消费者不变),改成浮在带子下方的瞬时闪现:升级那 2.2 秒看得到名字,平时把视野还给世界。 */
+  #lvname{position:absolute;left:14px;top:calc(env(safe-area-inset-top) + 62px);pointer-events:none;
+    font-size:12.5px;white-space:nowrap;letter-spacing:1px;opacity:0;transition:opacity .3s;
+    text-shadow:0 1px 5px rgba(0,0,0,.75),0 0 2px rgba(0,0,0,.9)}
+  #lvname.on{opacity:.95}
   #bar{height:9px;background:rgba(255,255,255,.14);border-radius:5px;overflow:hidden;
     box-shadow:inset 0 1px 2px rgba(0,0,0,.4)}
   #fill{display:block;height:100%;width:0%;border-radius:5px;
@@ -621,6 +630,17 @@ addEventListener('resize',resize);resize();
 function hudH(){const h=$('hud');if(h)document.documentElement.style.setProperty('--hudh',h.offsetHeight+'px');}
 addEventListener('resize',hudH);
 if('ResizeObserver' in window&&$('hud'))new ResizeObserver(hudH).observe($('hud'));
+let lvFlashT=0,hudDimT=0;   // (a) 等级名还剩几秒可见;(b) 顶带淡出还剩几秒
+function hudChrome(dt){const n=$('lvname');
+ if(n){if(lvFlashT>0){lvFlashT-=dt;if(!n.classList.contains('on'))n.classList.add('on');}
+  else if(n.classList.contains('on'))n.classList.remove('on');}
+ const h=$('hud');if(!h||phase!=='play')return;
+ const hb=h.getBoundingClientRect().height+18;let press=false;
+ for(const m of lockRings){if(!m.visible)continue;
+  const v=m.position.clone().project(camera);              // 圈在屏幕上的纵向位置
+  if(v.z<1&&(-v.y*.5+.5)*innerHeight<=hb){press=true;break;}}
+ if(press)hudDimT=3;else if(hudDimT>0)hudDimT-=dt;
+ h.classList.toggle('dim',hudDimT>0);}
 const MAXANI=Math.min(8,renderer.capabilities.getMaxAnisotropy());
 /* 斜视角不该被 mipmap 抹平:所有真正贴在表面上的画布贴图统一开各向异性。
    实测(第 56 轮 probe93):墙面一张 512² 铺在 20m 的立面上 = 33.8 纹素/px,而各向异性=1 ⇒ 屏幕上的
@@ -2350,7 +2370,7 @@ function colsOf(o){const cs=[];o.node.traverse(c=>{
  if(c.isMesh&&c.material&&c.material.color)cs.push(c.material.color.getHex());});
  return cs.length?cs:[0x9a9a9a];}
 function burstCols(kind,cs,n){spawnDebris(kind,cs,n);}
-function levelUp(){$('lvname').textContent='LV.'+level+' · '+LVN[level-1];
+function levelUp(){lvFlashT=2.2;$('lvname').textContent='LV.'+level+' · '+LVN[level-1];
  for(const o of objects)o.locked=0;lockHintT=1.2;showUnlock(); // 升级后允许重新解释一次
  banner('升级!LV.'+level+' '+LVN[level-1]);chime();vib(60);burstCols('concrete',null,12);statline();saveRun();}
 const KINDNAMES={landmark:'黄金电视塔',car:'汽车',bus:'公交',truck:'卡车',house_s:'房子',house_b:'大宅',bld_m:'大楼',bld_l:'高楼',sky:'摩天楼',tree_s:'树木',tree_b:'大树',bush:'灌木',flower:'花',grass:'草',rock:'石块',boulder:'巨岩',bench:'长椅',lamp:'路灯',trash:'垃圾桶',bike:'单车',water:'水塔',ped:'行人',pedbike:'骑车人',pedcrouch:'市民',palm:'棕榈',umbrella:'遮阳伞',snowman:'雪人',skier:'滑雪者'};
@@ -2512,7 +2532,7 @@ function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats=
  withSeed(citySeed,()=>{spawnAll();});
  setupProbe();
  buildMinimap();startT=performance.now()/1000;clearMsgs();
- $('lvname').textContent='LV.1 · '+LVN[0];$('fill').style.width='0%';showUnlock();}
+ $('lvname').textContent='LV.1 · '+LVN[0];lvFlashT=2.2;$('fill').style.width='0%';showUnlock();}
 function startGame(m,night,snow){clearRun();mode=m||'campaign';isNight=!!night;isSnow=!!snow;
  lastStart={m:mode,night:isNight,snow:isSnow};
  applyNight();if(mode==='rush'){stats.rushPlays=(stats.rushPlays||0)+1;saveStats();checkAchv();}
@@ -2555,7 +2575,7 @@ $('moreBtn').onclick=()=>{$('more').classList.toggle('open');
  $('moreBtn').textContent=moreSummary();setTimeout(cardFade,360);};
 function initHowto(){const touch=matchMedia('(pointer:coarse)').matches;
  $('howto').innerHTML=(touch?
-   '<p><em>👆</em>点一下想去的方向,或按住拖动;风柱露在指尖上方</p>':
+   '<p><em>👆</em>点一下想去的方向,抬手就停在那一点;拖动时不被手指挡住</p>':
    '<p><em>🖱️</em>按住鼠标拖动,或用 WASD / 方向键</p>')+
   '<p><em>🌼</em>先吃小花小草石头,越吃越大</p>'+
   '<p><em>🚗</em>长大后,汽车、房子全都能卷上天</p>'+
@@ -2684,7 +2704,7 @@ function update(dt){elapsed=performance.now()/1000-startT;const p=Math.min(1,sco
  if(d>6){const spd=Math.max(200,258-T.r*.39),v=Math.min(spd,d*6);
   vx=dx/d*v;vz=dz/d*v;T.x+=vx*dt;T.z+=vz*dt;}
  shake*=Math.exp(-dt*3.4);if(shake<1e-4)shake=0; // 指数衰减:线性尾巴会让小撞击"拖一下"
- hintT-=dt;lockHintT-=dt;updateLockRings();tutTick(dt);
+ hintT-=dt;lockHintT-=dt;updateLockRings();hudChrome(dt);tutTick(dt);
  comboT-=dt;saveCool-=dt;if(comboT<=0)comboN=0;showCombo();
  $('combobar').style.transform='scaleX('+Math.max(0,comboT/2.2).toFixed(3)+')';
  rushGoal();
@@ -2811,7 +2831,8 @@ function updateCamera(dt){
  if(phase==='menu'){const a=time*.1;
   camT.set(T.x+Math.sin(a)*430,260+Math.sin(time*.31)*30,T.z+Math.cos(a)*430);
   lookT.lerp(_p3.set(T.x,50,T.z),Math.min(1,dt*2));}
- else{camT.set(T.x,150+T.r*2.6,T.z+235+T.r*3.6);
+ else{const PULL=.354;// 第 66 轮:机位拉近到 1/2.82(probe103 精确档 387→135;立面 px/米 3.99→7.46、纹素/px 1.90→1.07)
+  camT.set(T.x,lookT.y+(150+T.r*2.6-lookT.y)*PULL,T.z+(235+T.r*3.6)*PULL);
   lookT.lerp(_p3.set(T.x,T.r*.9,T.z),Math.min(1,dt*5));}
  camera.position.lerp(camT,Math.min(1,dt*(phase==='menu'?1.2:3.5)));
  if(shake>0&&!reduceMotion){const amp=shake*shake*(9+T.r*.05); // 平方:小撞几乎不震;乘半径:大风暴才看得出震

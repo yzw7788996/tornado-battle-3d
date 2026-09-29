@@ -56,6 +56,17 @@ addEventListener('resize',resize);resize();
 function hudH(){const h=$('hud');if(h)document.documentElement.style.setProperty('--hudh',h.offsetHeight+'px');}
 addEventListener('resize',hudH);
 if('ResizeObserver' in window&&$('hud'))new ResizeObserver(hudH).observe($('hud'));
+let lvFlashT=0,hudDimT=0;   // (a) 等级名还剩几秒可见;(b) 顶带淡出还剩几秒
+function hudChrome(dt){const n=$('lvname');
+ if(n){if(lvFlashT>0){lvFlashT-=dt;if(!n.classList.contains('on'))n.classList.add('on');}
+  else if(n.classList.contains('on'))n.classList.remove('on');}
+ const h=$('hud');if(!h||phase!=='play')return;
+ const hb=h.getBoundingClientRect().height+18;let press=false;
+ for(const m of lockRings){if(!m.visible)continue;
+  const v=m.position.clone().project(camera);              // 圈在屏幕上的纵向位置
+  if(v.z<1&&(-v.y*.5+.5)*innerHeight<=hb){press=true;break;}}
+ if(press)hudDimT=3;else if(hudDimT>0)hudDimT-=dt;
+ h.classList.toggle('dim',hudDimT>0);}
 const MAXANI=Math.min(8,renderer.capabilities.getMaxAnisotropy());
 /* 斜视角不该被 mipmap 抹平:所有真正贴在表面上的画布贴图统一开各向异性。
    实测(第 56 轮 probe93):墙面一张 512² 铺在 20m 的立面上 = 33.8 纹素/px,而各向异性=1 ⇒ 屏幕上的
@@ -1785,7 +1796,7 @@ function colsOf(o){const cs=[];o.node.traverse(c=>{
  if(c.isMesh&&c.material&&c.material.color)cs.push(c.material.color.getHex());});
  return cs.length?cs:[0x9a9a9a];}
 function burstCols(kind,cs,n){spawnDebris(kind,cs,n);}
-function levelUp(){$('lvname').textContent='LV.'+level+' · '+LVN[level-1];
+function levelUp(){lvFlashT=2.2;$('lvname').textContent='LV.'+level+' · '+LVN[level-1];
  for(const o of objects)o.locked=0;lockHintT=1.2;showUnlock(); // 升级后允许重新解释一次
  banner('升级!LV.'+level+' '+LVN[level-1]);chime();vib(60);burstCols('concrete',null,12);statline();saveRun();}
 const KINDNAMES={landmark:'黄金电视塔',car:'汽车',bus:'公交',truck:'卡车',house_s:'房子',house_b:'大宅',bld_m:'大楼',bld_l:'高楼',sky:'摩天楼',tree_s:'树木',tree_b:'大树',bush:'灌木',flower:'花',grass:'草',rock:'石块',boulder:'巨岩',bench:'长椅',lamp:'路灯',trash:'垃圾桶',bike:'单车',water:'水塔',ped:'行人',pedbike:'骑车人',pedcrouch:'市民',palm:'棕榈',umbrella:'遮阳伞',snowman:'雪人',skier:'滑雪者'};
@@ -1947,7 +1958,7 @@ function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats=
  withSeed(citySeed,()=>{spawnAll();});
  setupProbe();
  buildMinimap();startT=performance.now()/1000;clearMsgs();
- $('lvname').textContent='LV.1 · '+LVN[0];$('fill').style.width='0%';showUnlock();}
+ $('lvname').textContent='LV.1 · '+LVN[0];lvFlashT=2.2;$('fill').style.width='0%';showUnlock();}
 function startGame(m,night,snow){clearRun();mode=m||'campaign';isNight=!!night;isSnow=!!snow;
  lastStart={m:mode,night:isNight,snow:isSnow};
  applyNight();if(mode==='rush'){stats.rushPlays=(stats.rushPlays||0)+1;saveStats();checkAchv();}
@@ -1990,7 +2001,7 @@ $('moreBtn').onclick=()=>{$('more').classList.toggle('open');
  $('moreBtn').textContent=moreSummary();setTimeout(cardFade,360);};
 function initHowto(){const touch=matchMedia('(pointer:coarse)').matches;
  $('howto').innerHTML=(touch?
-   '<p><em>👆</em>点一下想去的方向,或按住拖动;风柱露在指尖上方</p>':
+   '<p><em>👆</em>点一下想去的方向,抬手就停在那一点;拖动时不被手指挡住</p>':
    '<p><em>🖱️</em>按住鼠标拖动,或用 WASD / 方向键</p>')+
   '<p><em>🌼</em>先吃小花小草石头,越吃越大</p>'+
   '<p><em>🚗</em>长大后,汽车、房子全都能卷上天</p>'+
@@ -2119,7 +2130,7 @@ function update(dt){elapsed=performance.now()/1000-startT;const p=Math.min(1,sco
  if(d>6){const spd=Math.max(200,258-T.r*.39),v=Math.min(spd,d*6);
   vx=dx/d*v;vz=dz/d*v;T.x+=vx*dt;T.z+=vz*dt;}
  shake*=Math.exp(-dt*3.4);if(shake<1e-4)shake=0; // 指数衰减:线性尾巴会让小撞击"拖一下"
- hintT-=dt;lockHintT-=dt;updateLockRings();tutTick(dt);
+ hintT-=dt;lockHintT-=dt;updateLockRings();hudChrome(dt);tutTick(dt);
  comboT-=dt;saveCool-=dt;if(comboT<=0)comboN=0;showCombo();
  $('combobar').style.transform='scaleX('+Math.max(0,comboT/2.2).toFixed(3)+')';
  rushGoal();
@@ -2246,7 +2257,8 @@ function updateCamera(dt){
  if(phase==='menu'){const a=time*.1;
   camT.set(T.x+Math.sin(a)*430,260+Math.sin(time*.31)*30,T.z+Math.cos(a)*430);
   lookT.lerp(_p3.set(T.x,50,T.z),Math.min(1,dt*2));}
- else{camT.set(T.x,150+T.r*2.6,T.z+235+T.r*3.6);
+ else{const PULL=.354;// 第 66 轮:机位拉近到 1/2.82(probe103 精确档 387→135;立面 px/米 3.99→7.46、纹素/px 1.90→1.07)
+  camT.set(T.x,lookT.y+(150+T.r*2.6-lookT.y)*PULL,T.z+(235+T.r*3.6)*PULL);
   lookT.lerp(_p3.set(T.x,T.r*.9,T.z),Math.min(1,dt*5));}
  camera.position.lerp(camT,Math.min(1,dt*(phase==='menu'?1.2:3.5)));
  if(shake>0&&!reduceMotion){const amp=shake*shake*(9+T.r*.05); // 平方:小撞几乎不震;乘半径:大风暴才看得出震
