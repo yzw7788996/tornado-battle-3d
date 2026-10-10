@@ -43,9 +43,10 @@
   #scorep .sub b{font-size:12px;color:#fff}
   .grow{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
   /* 第 66 轮(a):等级名不再占常驻版面。它原本在顶带里吃掉 22px 高、156~612px 宽的一条实底,
-     而 probe121 量到这条带子在现状机位就把 11/19(竖屏)、11/21(横屏)把"正该看清的锁圈件"盖过 25%。
+     而 probe121 量到这条带子在**当时那一档机位(PULL=.65)**就把 11/19(竖屏)、11/21(横屏)把"正该看清的锁圈件"盖过 25%。
+     第 67 轮换档到 PULL=.78 之后这组数**还没重测**(#93 开着)—— 别拿它当 .78 档的地板值用。
      保留同一个 id(消费者不变),改成浮在带子下方的瞬时闪现:升级那 2.2 秒看得到名字,平时把视野还给世界。 */
-  #lvname{position:absolute;left:14px;top:calc(env(safe-area-inset-top) + 62px);pointer-events:none;
+  #lvname{position:absolute;left:14px;top:calc(env(safe-area-inset-top) + 96px);pointer-events:none;
     font-size:12.5px;white-space:nowrap;letter-spacing:1px;opacity:0;transition:opacity .3s;
     text-shadow:0 1px 5px rgba(0,0,0,.75),0 0 2px rgba(0,0,0,.9)}
   #lvname.on{opacity:.95}
@@ -233,7 +234,7 @@
     border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:9px 5px;
     font-size:12.5px;font-weight:700;letter-spacing:.3px;color:#dfe7df;
     background:rgba(255,255,255,.07);transition:background .18s,color .18s,border-color .18s}
-  .chip.on{background:rgba(255,215,94,.17);border-color:rgba(255,215,94,.52);color:#ffd75e}
+  .chip.on{background:rgba(255,215,94,.17);border-color:rgba(255,215,94,.52);color:#ffd75e;text-decoration:underline}
   .chip:active{transform:scale(.96)}
   .modeinfo{font-size:12.5px;line-height:1.5;opacity:.82;margin:0 2px 13px;min-height:19px}
   .linkbtn{pointer-events:auto;display:block;width:100%;background:none;border:none;cursor:pointer;
@@ -310,11 +311,11 @@
 <div id="iosHint" style="display:none;position:fixed;left:50%;transform:translateX(-50%);
   bottom:calc(env(safe-area-inset-bottom) + 18px);z-index:30;width:min(92vw,380px);
   background:rgba(12,24,16,.92);border:1px solid rgba(255,215,94,.35);border-radius:16px;
-  padding:12px 16px;color:#fff;font-size:13px;line-height:1.6;backdrop-filter:blur(8px)">
+  padding:12px 58px 12px 16px;color:#fff;font-size:13px;line-height:1.6;backdrop-filter:blur(8px)">
   📱 把游戏装到桌面:iOS Safari 点底部<b style="color:#ffd75e">分享 ⬆️</b> →
   「添加到主屏幕」,即可全屏像 App 一样玩
-  <div onclick="this.parentNode.remove()" style="position:absolute;top:6px;right:10px;
-   color:rgba(255,255,255,.5);font-size:16px;cursor:pointer">✕</div>
+  <button aria-label="关闭提示" title="关闭提示" onclick="this.parentNode.remove()" style="position:absolute;top:6px;right:10px;
+   color:rgba(255,255,255,.5);font-size:16px;cursor:pointer;min-width:44px;min-height:44px;background:none;border:0;padding:0;font-family:inherit">✕</button>
 </div>
 <div id="boot" style="position:fixed;inset:0;z-index:99;background:#131c15;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px">
@@ -430,8 +431,8 @@
     <div id="bar"><i id="fill"></i></div>
     <div id="nextlv"></div>
   </div>
-  <button class="cbtn" id="snd" title="声音">🔊</button>
-  <button class="cbtn" id="pp" title="暂停 (Esc)">⏸</button>
+  <button class="cbtn" id="snd" title="声音" aria-label="声音">🔊</button>
+  <button class="cbtn" id="pp" title="暂停 (Esc 或 P 键)" aria-label="暂停 (Esc 或 P 键)">⏸</button>
 </div>
 <div id="hint"></div>
 <div id="tut"><i id="tutn">1</i><span id="tutt"></span></div>
@@ -448,7 +449,7 @@
 
 <div id="menu" class="overlay">
   <div class="card">
-    <button class="gear" id="cfg" title="设置">⚙️</button>
+    <button class="gear" id="cfg" title="设置" aria-label="设置">⚙️</button>
     <div class="ticon">🌪️</div>
     <h1>龙卷风大作战</h1>
     <div class="hr"><span>REALISTIC 3D STORM</span></div>
@@ -532,7 +533,7 @@
          画质四个 chip 中间 —— 玩家看得见"自动/高/中/低"却点不到(命中测试:中心被 #sNote 接走)。
          出口照样常驻,但不再盖住别人的点击。 -->
     <div class="cardfoot">
-    <button class="bigbtn" id="sClose" style="margin-top:14px">完成</button>
+    <button class="bigbtn" id="sClose" title="完成 (Esc)" style="margin-top:14px">完成</button>
     <button class="linkbtn" id="sReset">恢复默认设置</button>
     <p class="mini" id="sNote"></p>
     </div>

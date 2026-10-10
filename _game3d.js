@@ -24,7 +24,7 @@ function applyCfg(){applyReduce();applyQuality();
  if(busAmb)busAmb.gain.value=CFG.amb/100;
  if(busSfx)busSfx.gain.value=CFG.sfx/100;
  for(const m of lockRings)m.material.color.setHex(CFG.cb?0xbfe0ff:0xffd98a);
- if(document.getElementById('sVib'))renderSettings();}
+ if($('snd'))sndGlyph();if(document.getElementById('sVib'))renderSettings();}
 const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
 const easeOut=t=>1-Math.pow(1-t,3);
 const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
@@ -79,7 +79,7 @@ function applyAniso(){let n=0,sk=0;
   t.anisotropy=MAXANI;n++;};
  scene.traverse(o=>{const ms=Array.isArray(o.material)?o.material:[o.material];
   for(const m of ms){if(!m)continue;
-   for(const k of ['map','normalMap','roughnessMap','emissiveMap','aoMap','envMap'])hit(m[k]);}});
+   for(const k of ['map','normalMap','roughnessMap','emissiveMap','aoMap','envMap'])hit(m[k]);if(m.uniforms)for(const u in m.uniforms)hit(m.uniforms[u]&&m.uniforms[u].value);}});
  hit(scene.environment);hit(scene.background);
  return {n,sk};}
 /* 帧率自适应:低帧自动降采样保流畅 */
@@ -1182,8 +1182,8 @@ function updateRipples(dt,pEsc){
 /* 吃不动的物件:脚下琥珀色提示环(池化 6,只标最近碰到的几个,避免满屏恐慌) */
 const LOCKN=6;
 const lockGeo=new THREE.RingGeometry(.87,1,28);
-// 琥珀(0xffb648)的亮度约 191,而白天地面的亮度约 175 —— 单靠琥珀在白天几乎等亮,实测最淡一帧只有
-// 6~9/255 的亮度差(verify17 Y1/Y2)。所以配一圈深色衬环:琥珀条夹在暗边中间,亮地面、夜城都读得出。
+// 琥珀(0xffb648)的亮度约 191,而白天地面的亮度约 175 —— 单靠琥珀在白天几乎等亮,所以要配一圈深色衬环把地板抬起来。
+// 配衬环的理由:白天最淡的一帧和亮地面几乎同亮度(旧值那一档的具体数**没留档,无法复核**)。衬环后的实测量级印在 r68a_v17.log(sha=ac30f131e29126dd 那棵树,链头链尾同 sha 已复验):verify17 的逐相位亮度差 9 个读数,39.2~58.0。
 const lockGeo2=new THREE.RingGeometry(.68,1.16,28);
 const lockRings=[],lockShades=[];
 for(let i=0;i<LOCKN;i++){const m=new THREE.Mesh(lockGeo,new THREE.MeshBasicMaterial({color:0xffd98a,
@@ -1214,7 +1214,7 @@ function updateLockRings(){
   m.scale.set(s,s,1);sh.scale.set(s,s,1);
   m.material.opacity=(.34+.28*k)*pu;
   sh.material.opacity=Math.min(.9,(.42+.30*k)*pu);}}
-  // 旧值 (.20+.34k)*(1±.22) 让最淡的一帧在白天只有 6.9/255 的亮度差(实测 probe24)——
+  // 旧值是代码里的公式常数 `(.20+.34k)*(1±.22)`(不是实测);那句"最淡一帧只有 6.9/255 的亮度差(实测 probe24)"**无法复核** —— `*p24*.log` 在本机现数 0 份,登记在 #119。
   // "吃不动的会亮圈"这条信息在它最该出现的地方几乎看不见。脉动照留,但把地板抬起来。
 
 function updateRain(dt,pEsc){rain.material.opacity=pEsc*.4;
@@ -1355,6 +1355,11 @@ function rivalUpdate(dt){if(phase==='menu')return;
 let AC=null,whGain=null,whFilt=null,rnGain=null,sirenOsc=null,sirenGain=null,sirenOn=false,BUS=null,
  masterG=null,busAmb=null,busSfx=null;
 let muted=false;try{muted=localStorage.getItem('tornadoMuted')==='1'}catch(e){}
+/* HUD 那颗图标对玩家说的话是"这一局听不听得到",不是"muted 这个变量是什么" ⇒ 凡是能把声音归零的成因都得由它自己改口。
+   实测改前:主音量拉到 0 后 masterG.gain.value=0(整片静)而图标仍画 🔊;AC 还没解锁那一格不算(那是"还没点",不是"设置关着")。 */
+function sndGlyph(){const el=$('snd');if(!el)return;const sil=muted||CFG.master===0;
+ el.textContent=sil?'🔇':'🔊';
+ el.title=sil?(muted?'已静音,点一下恢复声音':'主音量为 0,去「设置」里调上来'):'声音开着,点一下静音';el.setAttribute('aria-label',el.title);}
 function audioUnlock(){if(AC)return;
  try{AC=new (window.AudioContext||window.webkitAudioContext)();
   const len=AC.sampleRate*1.5,buf=AC.createBuffer(1,len,AC.sampleRate),d=buf.getChannelData(0);
@@ -1442,7 +1447,8 @@ function startTear(o){
  o.d0=Math.max(18,Math.hypot(o.x-T.x,o.z-T.z));}
 function chime(){blip(660,660,.18,.1,'sine');setTimeout(()=>blip(880,880,.28,.1,'sine'),120);}
 function fanfare(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>blip(f,f,.4,.13,'triangle'),i*170));}
-function vib(v){if(!CFG.vib)return;try{navigator.vibrate&&navigator.vibrate(v)}catch(e){}}
+let vibNo=0;   // 设备报「振不动」时由 vib() 置位(vibrate() 在无震动硬件上返回 false)
+function vib(v){if(!CFG.vib)return;try{const r=navigator.vibrate&&navigator.vibrate(v);if(r===false)vibNo=1}catch(e){}}
 function vibTier(tier){ // 分级触感
  if(tier>=8)vib([50,50,50,50,140]);      // 电视塔:连震轰鸣
  else if(tier>=7)vib([30,40,70]);          // 摩天楼:三段重震
@@ -1776,6 +1782,12 @@ function continueGame(){const s=loadRun();if(!s||!s.seed)return startGame();
  for(const sc of (s.sc||[]))addScar(sc[0],sc[1],sc[2]);
  for(const st of (s.st||[]))addStump(st[0],st[1]);
  score=s.score||0;eaten=s.eaten||0;runCombo=s.cb||0;   // 续玩要接上本局连击峰值,否则结算卡会低估这一局
+ // 续玩不是成长:reset() 把 level 拍回 1,而主循环按分数重算出 lv=7 > level=1 就会叫一次 levelUp(),
+ //   于是刚点「▶ 继续上次」就放一场"升级!LV.7"——横幅 + chime + 手机震动 + 12 块碎块,
+ //   还盖在「欢迎回来」那句提示上。这里先把等级静默对齐到分数该有的档,并同步 HUD 那两格文案。
+ let _lv=1;for(let i=1;i<TH.length;i++)if(score>=TH[i])_lv=i+1;
+ level=_lv;$('lvname').textContent='LV.'+level+' \u00b7 '+LVN[level-1];
+ if(typeof showUnlock==='function')showUnlock();if(typeof statline==='function')statline();
  for(const wv of (s.w||[])){
   const pool=POOLS.find(pp=>pp.k===wv[0])||POOLS[0];
   const m=new THREE.Mesh(pool.geo,pool.mat);
@@ -1837,7 +1849,7 @@ function endRush(){phase='win';pushHistory(runLabel(),score,120-rushT);
  $('timerbox').style.display='none';
  $('rushgoal').style.display='none'; // 结算屏不再报目标:update() 到 phase='win' 就不跑了,谁写下这个状态谁负责收
  $('win').classList.remove('hidden');
- saveStats();}
+ saveStats();statline();/* #220 限时的这一局到此为止:菜单那行当场认账 */}
 
 function kindLine(){const top=Object.entries(kindStats).sort((a,b)=>b[1]-a[1]).slice(0,4);
  // 结算卡只有三格:明细这行小字也住在同一个 flex 行里,不给它 width:100% 让它自己占一行,
@@ -1892,11 +1904,13 @@ function genShareCard(bgUrl){
  const top=Object.entries(kindStats).sort((a,b)=>b[1]-a[1]).slice(0,3);
  g.font='600 24px system-ui';g.fillStyle='rgba(255,215,94,.9)';
  top.forEach(([k,n],i)=>{g.fillText((KINDNAMES[k]||k)+' ×'+n,300,y0+310+i*38);});
- g.fillStyle='rgba(255,255,255,.35)';g.font='500 18px system-ui';
+ g.fillStyle='rgba(255,255,255,.5)';g.font='500 18px system-ui';
  // 页脚往下挪:带截图的卡上 y0=330,摧毁列表三项的基线在 640/678/716,原来日期写在 700
  // 那一条会与第三项的字身位重叠(24px 字从 ~696 起)
  g.fillText(new Date().toLocaleDateString('zh-CN'),300,740);
- g.fillStyle='rgba(255,255,255,.25)';g.font='500 15px system-ui';
+ // 页脚这两行原本 .35/.25:r113 真像素量出日期 2.67:1、页脚 1.94:1(整卡渐变是最暗那块底,AA 之后墨中位更暗)
+ //   ⇒ 掉在 3:1 之下。抬到实测过分界的那一档(同一条横条只换 α 扫过:0.45→3.51:1,0.55→4.61:1)。
+ g.fillStyle='rgba(255,255,255,.45)';g.font='500 15px system-ui';
  g.fillText('WebGL · 单文件 · V'+VER,300,780);
  const url=cv2.toDataURL('image/png');
  $('shareImg').src=url;
@@ -1988,7 +2002,7 @@ const MODES={
 let pick='campaign';
 function setPick(k){if(!MODES[k])return;pick=k;CFG.mode=k;saveCfg(); // 选模式这件事也归 CFG 那条通道管
  for(const c of document.querySelectorAll('#modes .chip'))
-  c.classList.toggle('on',c.dataset.k===k);
+  {c.classList.toggle('on',c.dataset.k===k);c.setAttribute('aria-pressed',String(c.dataset.k===k));}
  $('modeinfo').textContent=MODES[k].tip;
  $('start').textContent='开始游戏 · '+MODES[k].nm;cardFade();}
 $('start').onclick=()=>{audioUnlock();if(AC&&AC.state==='suspended')AC.resume();
@@ -2070,7 +2084,7 @@ function toMenu(){disarmRestart();saveRun(); // 先落盘再决定「继续上�
   pushHistory(runLabel(),score,elapsed);
  phase='menu';$('pause').classList.add('hidden');$('win').classList.add('hidden');
  $('menu').classList.remove('hidden');setChrome(false);
- renderCont();cardFade();}
+ statline();/* #220 无尽/雪原"回主菜单"就是终点 */renderCont();cardFade();}
 $('pp').onclick=togglePause;
 $('presume').onclick=resumeGame;
 $('prestart').onclick=()=>{const el=$('prestart');
@@ -2089,9 +2103,10 @@ function renderSettings(){
  $('sMasterV').textContent=CFG.master;$('sSfxV').textContent=CFG.sfx;$('sAmbV').textContent=CFG.amb;
  for(const p of [['sQ','quality'],['sR','reduce']])
   for(const c of document.querySelectorAll('#'+p[0]+' .chip'))
-   c.classList.toggle('on',c.dataset.v===CFG[p[1]]);
- $('sVib').classList.toggle('on',CFG.vib);$('sCb').classList.toggle('on',CFG.cb);
- $('sVib').textContent=(CFG.vib?'✓ ':'')+'📳 震动反馈';
+   {c.classList.toggle('on',c.dataset.v===CFG[p[1]]);c.setAttribute('aria-pressed',String(c.dataset.v===CFG[p[1]]));}
+ var vibCap=typeof navigator.vibrate==='function'&&!vibNo;$('sVib').classList.toggle('on',vibCap&&CFG.vib);$('sCb').classList.toggle('on',CFG.cb);
+ $('sVib').textContent=(vibCap?(CFG.vib?'✓ ':''):'✕ ')+'📳 震动反馈';
+ $('sVib').title=vibCap?'点一下开/关手机震动反馈':'本机给不了震动(没有 vibrate 或它返回 false)——开着也感觉不到';
  $('sCb').textContent=(CFG.cb?'✓ ':'')+'🎨 色盲友好描边';
  $('sNote').textContent=CFG.reduce==='auto'
   ? '减弱动效跟随系统设置(本机系统:'+(sysReduce()?'减少动效':'标准')+')'
@@ -2113,7 +2128,7 @@ $('cfg').onclick=openSettings;$('pcfg').onclick=openSettings;
 addEventListener('keydown',e=>{const k=e.key.toLowerCase();
  if(k==='escape'&&!$('settings').classList.contains('hidden')){closeSettings();return;}
  if(k==='escape'||k==='p'){e.preventDefault();togglePause();}});
-$('snd').onclick=()=>{muted=!muted;$('snd').textContent=muted?'🔇':'🔊';
+$('snd').onclick=()=>{muted=!muted;sndGlyph();
  try{localStorage.setItem('tornadoMuted',muted?'1':'0')}catch(e){}};
 
 /* ---------- 主更新 ---------- */
@@ -2257,7 +2272,10 @@ function updateCamera(dt){
  if(phase==='menu'){const a=time*.1;
   camT.set(T.x+Math.sin(a)*430,260+Math.sin(time*.31)*30,T.z+Math.cos(a)*430);
   lookT.lerp(_p3.set(T.x,50,T.z),Math.min(1,dt*2));}
- else{const PULL=.354;// 第 66 轮:机位拉近到 1/2.82(probe103 精确档 387→135;立面 px/米 3.99→7.46、纹素/px 1.90→1.07)
+ else{const PULL=.78;// 第 67 轮按重复采样定的档。定档依据其实是**模拟档**:在 sha=5dac4c9352c09cdb(.65 树)上挂 CAM_F=1.2 钩子,verify8 REP=3 印 LV1=0.0583 LV8=0.4569 比 7.84(r66k_v8_far.log 抬头自己写着「有效 PULL=0.720」—— 那是 #107 已否证的硬编码基线算的,不当证据)。
+  // 换成现货 PULL=.78 之后,第 67 轮全量链复验过的那棵树(sha=211ae231ef641d06,见 r67b_status.txt 的 same=yes;桥是扫档台账的「扫档树:sha=同一串」+「扫档基线:产物 const PULL=.78」)上 verify8 REP=3 实测印的是 LV1=0.0438 LV8=0.4306 比 9.83(r67b_v8.log),三次原始 LV1 0.0583/0.0438/0.0261 ⇒ 极差/最小 2.23×,LV1 自身的噪声就盖得住档间差的一半(#91 的波动门还没过);同一行两臂印的是 OLD=fail NEW=PASS ⇒ 成长对比这一条在本档过。
+  // 这行注释之后又打过别的补丁并重建过,这份注释**不写「当前 sha」**——它每重建一次就过期一次,而权威本来就在链头 pin 的那两份文件里(*_final_artifact.txt 与 *_status.txt 的 chain-pre/same= 行)。⇒ 上面那些数指的是**被复验过的那棵树**,不是正在被构建的这份文件。
+  // .65 那档 8 样中位 .114 过不了 0.10 地板,弃。中心遮挡那一格**没定住**(同一档连采三样极差 38×,波动门没过)⇒ 这里不写"过了",见 #91。自然机位距 382→约 300 以 verify8 的到位证人实测为准。清晰度只实测过 f=1→0.6 两档:px/米 3.99→7.28、纹素/px 1.90→1.13、×1.82(probe103,r66c_probe103.log);本档 ~5.2 是按 1/距离 折算,不是实测(#98 欠着这一格)。
   camT.set(T.x,lookT.y+(150+T.r*2.6-lookT.y)*PULL,T.z+(235+T.r*3.6)*PULL);
   lookT.lerp(_p3.set(T.x,T.r*.9,T.z),Math.min(1,dt*5));}
  camera.position.lerp(camT,Math.min(1,dt*(phase==='menu'?1.2:3.5)));
@@ -2334,7 +2352,7 @@ try{const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
   const h=$('iosHint');h.style.display='block';
   setTimeout(()=>h.remove(),12000);
   localStorage.setItem('tossHint','1');}}catch(e){}
-$('snd').textContent=muted?'🔇':'🔊';setChrome(false);applyCfg();
+setChrome(false);applyCfg();
 spawnAll();buildMinimap();applyAniso();   // 材质都是模块级建好的,开一次就够(带 __ani 幂等,后面再调也不重复干活)
 loadGroundPhotos();
 renderBests();

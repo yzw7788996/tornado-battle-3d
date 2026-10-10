@@ -19,4 +19,5 @@ game = game.replace('/*__PHOTOS__*/', 'const PHOTO=' + json.dumps(photo) + ';', 
 assert '/*__THREE__*/' in shell and '/*__GAME__*/' in shell
 out = shell.replace('/*__THREE__*/', three, 1).replace('/*__GAME__*/', game, 1)
 open(os.path.join(d, 'index.html'), 'w', encoding='utf-8').write(out)
-print('built OK, photos:', len(photo), ', size =', len(out))
+# size 用文件字节数:len(out) 是字符数,产物里有 CJK 注释时少约 1.5%(第 67 轮我把 1612896 当体积引用过)
+print('built OK, photos:', len(photo), ', size =', os.path.getsize(os.path.join(d, 'index.html')), 'bytes')
