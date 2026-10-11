@@ -2108,9 +2108,13 @@ function renderSettings(){
  $('sVib').textContent=(vibCap?(CFG.vib?'✓ ':''):'✕ ')+'📳 震动反馈';
  $('sVib').title=vibCap?'点一下开/关手机震动反馈':'本机给不了震动(没有 vibrate 或它返回 false)——开着也感觉不到';
  $('sCb').textContent=(CFG.cb?'✓ ':'')+'🎨 色盲友好描边';
- $('sNote').textContent=CFG.reduce==='auto'
+ /* #274-A:自动画质会在游玩中连续改档(qualityTick),玩家看得见的是芯片上的"自动"而不是生效倍率。
+   这里在面板尾部补一句当前档;只在 CFG.quality==='auto' 时出现(手动档芯片自己就写着 高/中/低)。
+   数取 renderer.getPixelRatio()(生效值),不取 DPRS[qStep](档位表值):两者在 devicePixelRatio 较小的一侧会差一截。
+   前提是当场成立的:openSettings 会先 pauseGame,而 qStep 只在 update() 的 qualityTick 里变 ⇒ 面板开着的时候这个数不会漂。 */
+$('sNote').textContent=(CFG.reduce==='auto'
   ? '减弱动效跟随系统设置(本机系统:'+(sysReduce()?'减少动效':'标准')+')'
-  : '已手动设为'+(CFG.reduce==='on'?'减弱动效 — 不顿帧、不震屏、闪光减弱':'标准动效');}
+  : '已手动设为'+(CFG.reduce==='on'?'减弱动效 — 不顿帧、不震屏、闪光减弱':'标准动效'))+(CFG.quality==='auto'?' · 画质自动 当前 ×'+renderer.getPixelRatio():'');}
 function openSettings(){if(phase==='play')pauseGame();
  $('settings').classList.remove('hidden');renderSettings();
  cardFade();}   // 面板刚显形才量得到 scrollHeight:滚动线索不能等下一次 resize 才补
