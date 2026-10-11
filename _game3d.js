@@ -2100,7 +2100,7 @@ $('pmenu').onclick=toMenu;
 /* ---------- 设置面板 ---------- */
 function renderSettings(){
  $('sMaster').value=CFG.master;$('sSfx').value=CFG.sfx;$('sAmb').value=CFG.amb;
- $('sMasterV').textContent=CFG.master;$('sSfxV').textContent=CFG.sfx;$('sAmbV').textContent=CFG.amb;
+ $('sMasterV').textContent=CFG.master+'%';$('sSfxV').textContent=CFG.sfx+'%';$('sAmbV').textContent=CFG.amb+'%'; // #275:滑块是 0-100,裸数读不出单位
  for(const p of [['sQ','quality'],['sR','reduce']])
   for(const c of document.querySelectorAll('#'+p[0]+' .chip'))
    {c.classList.toggle('on',c.dataset.v===CFG[p[1]]);c.setAttribute('aria-pressed',String(c.dataset.v===CFG[p[1]]));}
