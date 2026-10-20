@@ -2100,7 +2100,7 @@ $('pmenu').onclick=toMenu;
 /* ---------- 设置面板 ---------- */
 function renderSettings(){
  $('sMaster').value=CFG.master;$('sSfx').value=CFG.sfx;$('sAmb').value=CFG.amb;
- for(const [o,i,k] of [['sMasterV','sMaster','master'],['sSfxV','sSfx','sfx'],['sAmbV','sAmb','amb']]){const t=CFG[k]+'%';$(o).textContent=t;$(i).setAttribute('aria-valuetext',t);} // #275 单位 + #281:读屏念滑块报的是裸数,单位要进 aria-valuetext;值与 AT 文案由同一个 t 产出,不许各算各的
+ for(const [o,i,k] of [['sMasterV','sMaster','master'],['sSfxV','sSfx','sfx'],['sAmbV','sAmb','amb']]){const t=CFG[k]+'%';$(o).textContent=t;$(i).setAttribute('aria-valuetext',t);} // #275 单位 + #281:读屏念滑块报的是裸数,单位要进 aria-valuetext;值与 AT 文案由同一个 t 产出,不许各算各的。#288 一次按键只有一个主人:同拍 <output>(隐含 role=status)也念这个数 ⇒ 读屏听到两遍,所以三块 output 在 _shell.html 里写了 aria-live="off",念的只剩滑块这一条(它带 label 主语 + 这里的单位);证人=s285 探针两臂:板上通道 3/3→0/3,而滑块行仍印 name/value
  for(const p of [['sQ','quality'],['sR','reduce']])
   for(const c of document.querySelectorAll('#'+p[0]+' .chip'))
    {c.classList.toggle('on',c.dataset.v===CFG[p[1]]);c.setAttribute('aria-pressed',String(c.dataset.v===CFG[p[1]]));}
