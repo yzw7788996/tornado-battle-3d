@@ -2100,7 +2100,7 @@ $('pmenu').onclick=toMenu;
 /* ---------- 设置面板 ---------- */
 function renderSettings(){
  $('sMaster').value=CFG.master;$('sSfx').value=CFG.sfx;$('sAmb').value=CFG.amb;
- $('sMasterV').textContent=CFG.master+'%';$('sSfxV').textContent=CFG.sfx+'%';$('sAmbV').textContent=CFG.amb+'%'; // #275:滑块是 0-100,裸数读不出单位
+ for(const [o,i,k] of [['sMasterV','sMaster','master'],['sSfxV','sSfx','sfx'],['sAmbV','sAmb','amb']]){const t=CFG[k]+'%';$(o).textContent=t;$(i).setAttribute('aria-valuetext',t);} // #275 单位 + #281:读屏念滑块报的是裸数,单位要进 aria-valuetext;值与 AT 文案由同一个 t 产出,不许各算各的
  for(const p of [['sQ','quality'],['sR','reduce']])
   for(const c of document.querySelectorAll('#'+p[0]+' .chip'))
    {c.classList.toggle('on',c.dataset.v===CFG[p[1]]);c.setAttribute('aria-pressed',String(c.dataset.v===CFG[p[1]]));}
