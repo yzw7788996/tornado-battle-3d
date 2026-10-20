@@ -1972,7 +1972,7 @@ function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats=
  withSeed(citySeed,()=>{spawnAll();});
  setupProbe();
  buildMinimap();startT=performance.now()/1000;clearMsgs();
- $('lvname').textContent='LV.1 · '+LVN[0];lvFlashT=2.2;$('fill').style.width='0%';showUnlock();}
+ $('lvname').textContent='LV.'+level+' · '+LVN[level-1];lvFlashT=2.2;$('fill').style.width='0%';showUnlock();}
 function startGame(m,night,snow){clearRun();mode=m||'campaign';isNight=!!night;isSnow=!!snow;
  lastStart={m:mode,night:isNight,snow:isSnow};
  applyNight();if(mode==='rush'){stats.rushPlays=(stats.rushPlays||0)+1;saveStats();checkAchv();}
@@ -1980,7 +1980,7 @@ reset();applySnow();phase='play';saveStats();statline();
  rushEnded=false;rushT=mode==='rush'?120:0;
  $('timerbox').style.display=(mode==='rush')?'block':'none';
  $('timerbox').classList.remove('danger');
- $('timerbox').textContent='⏱ 2:00';
+ $('timerbox').textContent='⏱ '+fmt(rushT);
  $('menu').classList.add('hidden');$('win').classList.add('hidden');
  $('pause').classList.add('hidden');setChrome(true);
  lockHintT=(mode==='campaign')?8:3; // 开局先让玩家吃明白,不急着解释吃不动的
