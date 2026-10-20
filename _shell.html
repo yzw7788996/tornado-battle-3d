@@ -70,8 +70,13 @@
     color:#fff;font-size:18px;line-height:1;cursor:pointer;
     box-shadow:0 6px 18px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.10)}
   .cbtn:active{transform:scale(.9);filter:brightness(1.3)}
-  #hud.off,#mm.off,#timerbox.off,#rvpill.off{opacity:0;pointer-events:none}
-  #hud,#mm{transition:opacity .3s}
+  /* 第 111 轮 #291-b:光靠 opacity:0 拦不住键盘。改前臂实测(证据 harness/r111_taborder.log 的 OLD 行):
+     主菜单上连按 Tab 走到 9 站,其中 2 站落在**看不见**的 🔊/⏸ 上,回车真的会把声音关掉而屏幕上一点变化都没有。
+     visibility:hidden 才既出 Tab 序又出无障碍树;不用 display:none 是因为它会把整条顶带的布局盒抽掉,
+     而 verify29/36/48 量的 HUD 高度与一批取景几何都读那个盒(改了它们量的就不是同一条带子了)。
+     visibility 必须一起进过渡列表:visible→hidden 整段过渡保持 visible(淡出看得完整),hidden→visible 立刻可见(淡入照常)。 */
+  #hud.off,#mm.off,#timerbox.off,#rvpill.off{opacity:0;pointer-events:none;visibility:hidden}
+  #hud,#mm{transition:opacity .3s,visibility .3s}
 
   #hint{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 158px);transform:translateX(-50%);
     background:rgba(10,15,11,.82);border:1px solid rgba(255,215,94,.3);color:#ffe9b0;
