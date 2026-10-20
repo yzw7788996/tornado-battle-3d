@@ -57,6 +57,7 @@ function hudH(){const h=$('hud');if(h)document.documentElement.style.setProperty
 addEventListener('resize',hudH);
 if('ResizeObserver' in window&&$('hud'))new ResizeObserver(hudH).observe($('hud'));
 let lvFlashT=0,hudDimT=0;   // (a) 等级名还剩几秒可见;(b) 顶带淡出还剩几秒
+const COMBO_T=2.2;   // 连击窗口只有一个出处:武装它的那一拍与 HUD 那条归一化的条都读它(手抄第二份会让条溢出或提前空掉而数字照样对)
 function hudChrome(dt){const n=$('lvname');
  if(n){if(lvFlashT>0){lvFlashT-=dt;if(!n.classList.contains('on'))n.classList.add('on');}
   else if(n.classList.contains('on'))n.classList.remove('on');}
@@ -1820,7 +1821,7 @@ function consume(o){score+=o.pts;eaten++;stats.eaten++;kindStats[o.k]=(kindStats
  // ↑ 限时挑战结算之后点「继续闲逛」的那段没有时间限制,不该再把全局最高分抬上去
  // (实测:4671 分结算 → 闲逛 75 秒到 8384,而"挑战最佳"停在 4669,两个数自相矛盾)
  checkAchv();
- comboN=comboT>0?comboN+1:1;comboT=2.2;
+ comboN=comboT>0?comboN+1:1;comboT=COMBO_T;
  ftext(T.x,150*Math.pow(T.r/26,.75)*.7,T.z,'+'+o.pts,o.pts);
  burstCols(POOLMAP[o.k]||'concrete',colsOf(o),1+((Math.random()*2)|0));
  if(o.tier<=2)popSnd(o);else crackSnd(POOLMAP[o.k]||'concrete');
@@ -2151,7 +2152,7 @@ function update(dt){elapsed=performance.now()/1000-startT;const p=Math.min(1,sco
  shake*=Math.exp(-dt*3.4);if(shake<1e-4)shake=0; // 指数衰减:线性尾巴会让小撞击"拖一下"
  hintT-=dt;lockHintT-=dt;updateLockRings();hudChrome(dt);tutTick(dt);
  comboT-=dt;saveCool-=dt;if(comboT<=0)comboN=0;showCombo();
- $('combobar').style.transform='scaleX('+Math.max(0,comboT/2.2).toFixed(3)+')';
+ $('combobar').style.transform='scaleX('+Math.max(0,comboT/COMBO_T).toFixed(3)+')';
  rushGoal();
  if(saveCool<=0&&phase==='play'&&score>0&&mode==='campaign'){saveRun();saveCool=4;}
  if(mode==='rush'&&!rushEnded&&phase==='play'){
