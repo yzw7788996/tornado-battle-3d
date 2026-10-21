@@ -2967,7 +2967,7 @@ function syncInert(){
  for(let i=0;i<SURFACES.length;i++){if(s[i]!=='1')continue;const z=parseInt(getComputedStyle($(SURFACES[i])).zIndex,10)||10;
   if(z>tz||(z===tz&&i>top)){tz=z;top=i;}}
  for(const id of BG){const e=$(id);if(!e)continue;const lock=top>=0&&id!==SURFACES[top];
-  if('inert'in e)e.inert=lock;e.setAttribute('aria-hidden',lock?'true':'false');}}
+  const canInert='inert'in e;if(canInert)e.inert=lock;e.setAttribute('aria-hidden',(canInert&&lock)?'true':'false');}}
 </script>
 </body>
 </html>
