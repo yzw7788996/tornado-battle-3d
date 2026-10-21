@@ -348,6 +348,7 @@
 (function(){
  var GIVE=25000,state=0;
  function el(i){return document.getElementById(i);}
+var SPIN0=(function(){var e=el('bootSpin');return e?e.textContent:''})();
  function alive(){return !!el('boot');}
  function say(msg,why){                       // 停转圈,把话说清楚,并给出出口
   if(state===2)return;state=2;
@@ -375,7 +376,7 @@
    'min-height:44px;cursor:pointer';
   w.onclick=function(){state=0;b.innerHTML='';b.style.display='none';
    el('bootWhy').style.display='none';
-   var s=el('bootSpin');if(s){s.style.animation='';s.textContent='🌪️';}
+   var s=el('bootSpin');if(s){s.style.animation='';s.textContent=SPIN0;}
    el('bootMsg').textContent='仍在加载,请稍候…';};
   b.appendChild(w);
  },GIVE);
@@ -432,7 +433,7 @@
 <canvas id="mm" width="264" height="264" style="width:min(116px,21vw);height:min(116px,21vw)"></canvas>
 
 <div id="hud">
-  <div class="panel" id="scorep"><b id="score">0</b><span class="sub">吞噬 <b id="cnt">0</b></span><span class="sub" id="clock"><span class="sv">已用时</span>⏱ <b id="clockv">0:00</b></span></div>
+  <div class="panel" id="scorep"><span class="sv">得分</span><b id="score">0</b><span class="sub">吞噬 <b id="cnt">0</b></span><span class="sub" id="clock"><span class="sv">已用时</span>⏱ <b id="clockv">0:00</b></span></div>
   <div class="panel grow">
     <div id="lvname">LV.1 · 微风小龙卷</div>
     <div id="bar"><i id="fill"></i></div>

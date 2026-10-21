@@ -1787,7 +1787,7 @@ function continueGame(){const s=loadRun();if(!s||!s.seed)return startGame();
  //   于是刚点「▶ 继续上次」就放一场"升级!LV.7"——横幅 + chime + 手机震动 + 12 块碎块,
  //   还盖在「欢迎回来」那句提示上。这里先把等级静默对齐到分数该有的档,并同步 HUD 那两格文案。
  let _lv=1;for(let i=1;i<TH.length;i++)if(score>=TH[i])_lv=i+1;
- level=_lv;$('lvname').textContent='LV.'+level+' \u00b7 '+LVN[level-1];
+ level=_lv;$('lvname').textContent=lvLabel();
  if(typeof showUnlock==='function')showUnlock();if(typeof statline==='function')statline();
  for(const wv of (s.w||[])){
   const pool=POOLS.find(pp=>pp.k===wv[0])||POOLS[0];
@@ -1809,7 +1809,8 @@ function colsOf(o){const cs=[];o.node.traverse(c=>{
  if(c.isMesh&&c.material&&c.material.color)cs.push(c.material.color.getHex());});
  return cs.length?cs:[0x9a9a9a];}
 function burstCols(kind,cs,n){spawnDebris(kind,cs,n);}
-function levelUp(){lvFlashT=2.2;$('lvname').textContent='LV.'+level+' · '+LVN[level-1];
+function lvLabel(){return 'LV.'+level+' · '+LVN[level-1];}
+function levelUp(){lvFlashT=2.2;$('lvname').textContent=lvLabel();
  for(const o of objects)o.locked=0;lockHintT=1.2;showUnlock(); // 升级后允许重新解释一次
  banner('升级!LV.'+level+' '+LVN[level-1]);chime();vib(60);burstCols('concrete',null,12);statline();saveRun();}
 const KINDNAMES={landmark:'黄金电视塔',car:'汽车',bus:'公交',truck:'卡车',house_s:'房子',house_b:'大宅',bld_m:'大楼',bld_l:'高楼',sky:'摩天楼',tree_s:'树木',tree_b:'大树',bush:'灌木',flower:'花',grass:'草',rock:'石块',boulder:'巨岩',bench:'长椅',lamp:'路灯',trash:'垃圾桶',bike:'单车',water:'水塔',ped:'行人',pedbike:'骑车人',pedcrouch:'市民',palm:'棕榈',umbrella:'遮阳伞',snowman:'雪人',skier:'滑雪者'};
@@ -1973,7 +1974,7 @@ function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats=
  withSeed(citySeed,()=>{spawnAll();});
  setupProbe();
  buildMinimap();startT=performance.now()/1000;clearMsgs();
- $('lvname').textContent='LV.'+level+' · '+LVN[level-1];lvFlashT=2.2;$('fill').style.width='0%';showUnlock();}
+ $('lvname').textContent=lvLabel();lvFlashT=2.2;$('fill').style.width='0%';showUnlock();}
 function startGame(m,night,snow){clearRun();mode=m||'campaign';isNight=!!night;isSnow=!!snow;
  lastStart={m:mode,night:isNight,snow:isSnow};
  applyNight();if(mode==='rush'){stats.rushPlays=(stats.rushPlays||0)+1;saveStats();checkAchv();}
@@ -2118,8 +2119,8 @@ $('sNote').textContent=(CFG.reduce==='auto'
   : '已手动设为'+(CFG.reduce==='on'?'减弱动效 — 不顿帧、不震屏、闪光减弱':'标准动效'))+(CFG.quality==='auto'?' · 画质自动 当前 ×'+renderer.getPixelRatio():'');}
 function openSettings(){if(phase==='play')pauseGame();
  $('settings').classList.remove('hidden');renderSettings();
- cardFade();}   // 面板刚显形才量得到 scrollHeight:滚动线索不能等下一次 resize 才补
-function closeSettings(){$('settings').classList.add('hidden');}
+ cardFade();settingsOpener=document.activeElement;}   // 面板刚显形才量得到 scrollHeight:滚动线索不能等下一次 resize 才补
+function closeSettings(){$('settings').classList.add('hidden');if(typeof syncInert==='function')syncInert();if(settingsOpener&&settingsOpener.isConnected&&!settingsOpener.closest('[inert]')){try{settingsOpener.focus();}catch(e){}}}
 for(const p of [['sMaster','master'],['sSfx','sfx'],['sAmb','amb']])
  $(p[0]).oninput=e=>{CFG[p[1]]=+e.target.value;saveCfg();applyCfg();};
 for(const p of [['sQ','quality'],['sR','reduce']])
@@ -2293,7 +2294,7 @@ function updateCamera(dt){
 // 18% 的世界时间(玩家少卷 3/4)。改成 20Hz 定步长补帧,一帧最多补 4 步(0.2s),补不上就丢掉,
 // 绝不攒成下一次的大跳;物理步长仍是 .05,不会因为补帧而穿模。
 const WSTEP=.05;
-function frame(ts){requestAnimationFrame(frame);
+function frame(ts){requestAnimationFrame(frame);syncInert();
  const now=ts/1000,real=now-(last||now);last=now;      // 真帧时:钳掉的那截要留给画质统计,不能骗它
  const raw=Math.min(.2,real);
  if(phase==='paused'){audioFrame(raw);renderer.render(scene,camera);return;} // 冻结模拟,但风声增益仍要归零
@@ -2373,3 +2374,14 @@ if(navigator.serviceWorker&&(location.protocol==='https:'||location.hostname==='
 camera.position.set(1080,300,3120);
 requestAnimationFrame(frame);
 const bootEl=$('boot');if(bootEl)bootEl.remove();
+const SURFACES=['menu','pause','settings','shareLayer','win'],BG=[...SURFACES,'hud'];let inertSig='',settingsOpener=null;
+ /* #250:浮层在场时背景不该接收焦点/点击。按 z-index 认最上层,只放它一个可聚焦;
+    v1 只锁 hud/menu,漏了"设置叠在暂停上"和"战报叠在结算上"两条同形分支。 */
+function syncInert(){
+ let s='';for(const id of SURFACES){const e=$(id);s+=(e&&!e.classList.contains('hidden'))?'1':'0';}
+ if(s===inertSig)return;inertSig=s;
+ let top=-1,tz=-1;
+ for(let i=0;i<SURFACES.length;i++){if(s[i]!=='1')continue;const z=parseInt(getComputedStyle($(SURFACES[i])).zIndex,10)||10;
+  if(z>tz||(z===tz&&i>top)){tz=z;top=i;}}
+ for(const id of BG){const e=$(id);if(!e)continue;const lock=top>=0&&id!==SURFACES[top];
+  if('inert'in e)e.inert=lock;e.setAttribute('aria-hidden',lock?'true':'false');}}
