@@ -2096,7 +2096,7 @@ $('prestart').onclick=()=>{const el=$('prestart');
  // 文案要说清"再点会丢什么",而且不能承诺一个这个模式根本没有的动作(限时/无尽不存档)
  $('psave').textContent=(mode==='campaign'?'再点一次会丢掉本局进度(存档随之清除)'
   :'再点一次会立刻重开这一局')+';不想重开就点「继续游戏」';
- armTO=setTimeout(disarmRestart,4000);};
+ /* #344:不再定时复位 ⇒ 待确认只由 resumeGame/toMenu 解除,状态翻转必须有可见出口 */};
 $('pmenu').onclick=toMenu;
 
 /* ---------- 设置面板 ---------- */
