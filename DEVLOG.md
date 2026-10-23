@@ -2097,3 +2097,48 @@ HUD 分数板在屏幕上只有一个裸数字,读屏念出来也是裸数,前�
   - `MODE=settings PHASE=old` ⇒ `r119_345_settings_old.log` rc=0(按预期):暂停卡 armed →「⚙️ 设置」往返 → 4.2s 后仍 `armed=true` ⇒ 缺陷在真机上发火。
   - `MODE=hidden PHASE=old` ⇒ `r119_345_hidden_old.log` rc=0:注入 `document.hidden=true` 后 4.2s 仍 `armed=true` ⇒ 第二条路径同样发火。两条都过同一条反向对照(回到局内三件:pause 关 / #hud 在 / armed 空)。
   - 订正:上面 #345 那节写的"OLD 臂需要该腿支持 OLD_URL(当前还不支持)"**已过期** —— 现读腿已支持 `OLD_URL`,且 `harness/index.pre-345.html` 快照在盘(sha `224d446ac4b9de8c`,与现产同)。#345 的"修后"那一半与产品修法**仍未落**,排期不变:先推 #344,再 `APPLY=1 node r119_345_patch.mjs` → 重建 → 两臂 → 下一串。
+
+# 第 120 轮补记(草稿,落进 DEVLOG 由 r117_close.sh 按内容键去重追加;去重键:「#345 已落盘 + 三臂真机证人」)
+
+## #345 已落盘 + 三臂真机证人(两处 `disarmRestart()`,净 +98 B)
+- 改动:`_game3d.js` ① `openSettings(){/* #345 */disarmRestart();if(phase==='play')pauseGame();`(L2120)② `visibilitychange` 的 **hidden 分支内**、`dropInput()` 之前加 `disarmRestart();`(L2351)。`python build.py` 重建后 **sha cd36cb5d95e47cdc**(改前 224d446ac4b9de8c),改前副本 `harness/_game3d.js.pre-r119p345`。落点现读核对过:第二处确实在 `if(document.hidden){…}` 里面,恢复可见那一支没有被动到。
+- 三臂(腿 `r119_344_leg.mjs` 的三个 MODE,共用同一条反向对照:回到局内三件 = pause 关 / `#hud` 在 / armed 空):
+  - **改前**(224d446ac4b9de8c):`MODE=settings PHASE=old` 与 `MODE=hidden PHASE=old` 都是「4.2s 后仍 armed=true」⇒ 两条"离开这张卡"的路径在真机上都不撤销(缺陷发火),`r119_345_settings_old.log` / `r119_345_hidden_old.log`。
+  - **改后**(cd36cb5d95e47cdc):`settings`/`hidden` 两路「armed=false」⇒ 修法发了火;而 `basic` 路仍「armed=true」⇒ **撤销只发生在离开暂停卡的那两条路上,#344 的"待确认不自动复位"没被这次改动带退**(`r120_345_settings_new.log` / `r120_345_hidden_new.log` / `r120_345_basic_new.log`,三臂 rc=0)。
+  - `hidden` 那一臂是**注入**条件(`Object.defineProperty(document,'hidden',{value:true})` + `dispatchEvent`,产品自己读的就是这个属性 ⇒ 走真分支),并且当场把 `document.hidden=true` 读回来自证。台账口径固定:**这证的是代码路径,不是"玩家真切换过标签页"**。
+- 挂链前的定点预跑(凡读本次改动锚点的套件):verify39 红 0/6(`r120_v39_new.log`)· verify42 红 0/6(`r120_v42_new.log`)· verify21 红 0/7(`r120_v21_new.log`,其中 X6「切后台也松手」正好穿过被改的那一支)。
+
+## 量具自纠:#345 落盘台架的 S5 断的是**状态**,不是**行为**
+- 症状:第 119 轮收尾之后再跑 `node r119_345_patch.mjs --selftest` ⇒ **红 1/6**,红的正是「S5 落盘分支的门:有锁就拒」。它的实现是 `readdirSync(H).some(f => f.endsWith('.lock'))` —— **盘上恰好有锁才绿**。链在跑时它"过"是因为那时真有 `r115a.lock`,链一结它就恒红,而落盘分支本身一直是好的。
+- 这是同一族的第 N 次发作(把"我观测到的状态"当成"机制成立"),而且这次是**上一轮我自己写下的臂**在下一轮变假警报。判据要问的是行为:**给定有锁,落盘分支必须拒**。
+- 修法:把落盘条件抽成**单一函数** `applyDecision({locks, bakExists, out})`(APPLY 分支与自检调同一份,不留两份判据),S5 拆成五格合成臂 —— 有锁拒 / 切不出拒 / 备份已在拒 / **三样都干净必须允许落**(这一格是"下限臂",否则一个恒拒的假门也能全绿)/ 理由优先序(锁盖过备份,链在跑时不许把原因说成"备份已在")。改后 **红 0/10**,并另印一行「闸门真值」只披露不判红。
+
+## 新量具债 #348:verify42 的 Y5 拿「openSettings 起 160 字内出现 `cardFade()`」当证人,余额只剩 6 字
+- 现读:本次往 `openSettings()` 开头插入 26 B 之后,那段 regex 的匹配长度是 **154/160**(`node -e` 直接量 `exec()` 到的 `m[0].length`)。也就是说产品再往"开面板"那几句里加一行,Y5 就会在**没有缺陷的树上判红**。这与 #313(变量分母要对账)、#342(写死分母的恒红判据)同族:**把实现的长度写进判据**。
+- 修法方向(登记,本轮不做):把这条腿换成与长度无关的形状 —— 按花括号配平取 `openSettings` 的函数体,判"体内有没有调用 `cardFade`",并配一条"把 `cardFade` 从 `openSettings` 挪到别的函数 ⇒ 这条必须红"的变异臂。**不许靠把 160 加大来续命**(那是放宽门槛,不是修判据)。
+
+## 第 120 轮的新候选与边界(本轮未动产品之外的面)
+- **#347 仍在队列里**(浮层打开时焦点不进入新语境;全文件只有 1 处 `.focus()`,在 `closeSettings` 归还 opener)。尺子 `r119_347_leg.mjs` 就绪(判决 `judge({inCard, tabsToEnter, wantInCard})` 单一实现 + 单测 红 0/6);结算卡那一半**要真跑一局**才够得着(~1~2 分钟/臂),不许写成"结构上够不到",也不建议做成每链常驻格。排在 #345 的全量复验之后。
+- 本轮负结果:无新增作废(#346 那条已在第 119 轮以"只重置配置、可逆、当场回显"否证,分级标准一并留在第 119 轮补记里)。
+- 现场边界复述(供下一任核对,不是新主张):`manifest.json` 仍是并发车道的未提交改动 ⇒ 不替别人提交;`index.pre-345.html`(sha 224d446)与 `index.mut344.html`(sha 3da0aff)是量具用的快照,留在 harness,不提交不删。
+
+
+## r116a 结链成绩(第 120 轮 · 全量回归 · 由 r116a_tail.sh 从 r116a_status.txt 逐字摘录)
+- 套件行(带 rc=)**71** · 非零 rc **1** 条:verify57  · 缺席点名 **4** 套/共 **4** 格
+- 链头钉 sha=`cd36cb5d95e47cdc` · 收尾时在制 sha=`cd36cb5d95e47cdc` · 仓库 HEAD=6b693be(本串验的就是这棵树)
+- 本案守卫在本串的表现(现读台账原文):
+  `verify39 rc=0 | 新格式[红 0/6] | 缺席格=0 | 形状[守卫行] | 老格式[] | 汇总[0/6 守卫行 nm=0]`
+- 链尾门(现读台账原文):
+  | 复读者 rc=0 摘要:套件判到=71 / 判空=0(空里:没跑到 0、空跑/崩 0) 两轮都没跑到=无(覆盖无洞) 
+  | PRODCHECK bad=0 rc=0
+  | PRODCHECK rc=0(四件产物存在/非空/形状 + 套件日志数;见上面 PROD-* 各行)
+  | CMPCHAIN r115a_status.txt(72 套行)→ r116a_status.txt(72 套行)
+  | CMPCHAIN rc=1 只作信息入账(链间套件面本来会长短;差异逐条人工归因,不并进总判决)
+  | ROWCOV rc=0 [棘轮 r116a] 文件 71 · 判到 40(COVERED 40 / BLIND 0) · 不适用 31 · 没跑到 0 · 没交分母 0 · 形状不认 0
+  | NAMECHECK rc=0 [按名字对账 r110_namecheck] 前缀=r116a 套件 71 · 可判 58/71(这把尺子的真实覆盖面,不许读成"全量对账") · 齐 58(其中靠扣 NOT MEASURED 对平 1、靠重名样本对平 1) · 有行没出现 0 · 名字在却没印行 0 · 分母对不上 0 · 半判(射程外) 0 · 没日志 0 · 抽不出行名 13 · 链没记分母 0 · 重名套件 3 · 同名多声明套件 0
+  | SELFTEST rc=0 [自检门] r116a 相对 r115a 没有新格 ⇒ 这一串没有要补的自检(这是"没有新增",不是"没跑到")
+  | TEETH rc=0 [r116a 回执分桶] 日志 71 份 · 分桶之和 71(平)
+- 归因:门 rc=0,台账 r116a_attrib.txt(红尾 1 条 ⇒ 每条一行,类∈过期期望/没跑到/产品退化/量具)
+- 本轮交付的产品改动:#345 两处 `disarmRestart()`(openSettings + visibilitychange 的 hidden 分支),净 +98 B
+  三臂真机:改前 224d446ac4b9de8c ⇒ settings/hidden 两路「4.2s 后仍 armed=true」(缺陷发火);
+  改后 cd36cb5d95e47cdc ⇒ 两路 armed=false,而 basic 路仍 armed=true(#344 没被带退);三臂共用反向对照绿。
