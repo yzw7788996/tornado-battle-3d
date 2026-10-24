@@ -22,9 +22,10 @@
 python build.py
 ```
 
-构建器做的事不止两处替换:它把 `three.min.js`、`_game3d.js` 和 **15 张地面照片(base64 JPEG)** 一起内联进
+构建器做的事不止两处替换:它把 `three.min.js`、`_game3d.js` 和 **16 张照片贴图(base64 JPEG:15 张表面照 + 1 张楼面法线)** 一起内联进
 `index.html`。自己手写 `replace('/*__THREE__*/', …)` 的那条命令会漏掉照片,产物里留着没填的
-`__PHOTO` 占位符 —— 游戏能跑,但地面全是空的(旧版这里写过 782KB 与 1.62MB 两个实测数,那两次构建**没留日志,无法复核**,已作废 ⇒ 当前体积请当场 `wc -c index.html` 自己看)。
+`__PHOTO` 占位符 —— 游戏能跑,但地面全是空的(旧版这里写过 782KB 与 1.62MB 两个实测数,那两次构建**没留日志,无法复核**,已作废;
+V3.2.0 起的实测数:6,623,764 字节,md5 `c07539a1…`,见 DEVLOG 精修第 131 轮巡检)。
 
 ## 画面一览
 
@@ -57,7 +58,7 @@ python build.py
 
 ## 想打包成真正的 APK?(V1.0.0 已具备 PWA 条件)
 
-本目录已包含 `manifest.json` 和 `icons/`(192/512 图标),满足 PWA 安装标准:
+本目录已包含 `manifest.json` 和 `icons/`(192/512 图标 + 专用 maskable 变体,精修第 122 轮拆分),满足 PWA 安装标准:
 
 - **最简单**:用 [PWABuilder](https://www.pwabuilder.com) 输入游戏网址,
   直接生成安卓 APK / iOS 包,无需任何原生代码
