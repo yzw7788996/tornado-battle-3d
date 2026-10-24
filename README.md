@@ -49,7 +49,7 @@ python build.py
 
 ## 在手机上玩(3 种方式)
 
-1. **直接发文件**:把 `index.html` 单个文件(约 1.6MB,大头是 15 张地面照片)通过微信/QQ 发到手机,
+1. **直接发文件**:把 `index.html` 单个文件(约 6.3MB,大头是 16 张 1K 照片贴图)通过微信/QQ 发到手机,
    用浏览器(Chrome / Safari)打开即可,**无需联网**。
 2. **局域网访问**:双击 `start-server.bat`,手机连同一个 WiFi,
    浏览器打开 `http://电脑IP:8000`。
@@ -63,6 +63,23 @@ python build.py
   直接生成安卓 APK / iOS 包,无需任何原生代码
 - **Android 手机**:Chrome 打开 → 菜单"添加到主屏幕" → 获得全屏应用+桌面图标
 - 也可以让我配置 Capacitor 打包工程(可加广告/内购等原生能力)
+
+## 部署与缓存(自建服务器必读)
+
+本项目两次被"浏览器启发式缓存"咬过(DEVLOG r120a 与精修#122 各一条红尾):静态服务器不发 `Cache-Control`
+时,浏览器对 classic.html / manifest.json 这类小文件按"距 Last-Modified 时长的 10%"自行推定新鲜期 ——
+发布更新后,老玩家可能几小时内仍被喂旧文件。三个页面里只有 index.html 例外:它的导航走 Service Worker
+"网络优先"(sw.js 主脚本默认绕过 HTTP 缓存,所以 SW 与主页面更新一定能到达),受害的是 classic.html、
+manifest.json 和图标。按文件分两档配:
+
+| 文件 | Cache-Control | 理由 |
+|---|---|---|
+| `index.html` `classic.html` `manifest.json` `sw.js` | `no-cache` | 允许缓存但每次带条件请求验证,更新立刻生效 |
+| `icons/*` | `max-age=604800` | 二进制资源缓存 7 天;图标不随版本哈希命名,不敢更长 |
+
+常见平台:GitHub Pages 自带 10 分钟 max-age(可接受);Cloudflare Pages / Netlify 用 `_headers`
+文件照上表配;Nginx 一行 `location ~ ^(index|classic)\.html$|^(manifest\.json|sw\.js)$ { add_header Cache-Control "no-cache"; }`。
+本地 `start-server.bat` 是开发用途,不受此影响。
 
 ## 版本记录
 
