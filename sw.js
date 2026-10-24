@@ -1,9 +1,14 @@
-const CACHE='tornado-v2';
+const CACHE='tornado-v3';   // 精修#121:还原+画质增强是一次大版本(6.3MB),缓存键随版本走;旧键由 activate 整删,离线副本不会停在上一版
 const PAGE='./index.html';   // 页面只有一个固定缓存键:玩家可能从 / 、/index.html 或子路径进来
 self.addEventListener('install',e=>{
-  e.waitUntil(caches.open(CACHE).then(c=>c.addAll([
-    PAGE,'./manifest.json','./icons/icon-192.png','./icons/icon-512.png'
-  ])).then(()=>self.skipWaiting()));
+ /* 主页面是离线兜底的唯一关键件:它拉不下来就宁可安装失败、留住上一版缓存(旧 SW 继续服务),
+    "断网还能玩"这条承诺不回退;manifest/图标只是锦上添花,逐项容错 ——
+    旧写法 addAll 全有或全无,一个图标 404 就把整个离线安装拖垮(精修#121 立案即修)。 */
+ e.waitUntil(caches.open(CACHE).then(async c=>{
+  await c.put(PAGE,await fetch(PAGE));
+  await Promise.allSettled(['./manifest.json','./icons/icon-192.png','./icons/icon-512.png']
+   .map(u=>fetch(u).then(r=>c.put(u,r))));
+ }).then(()=>self.skipWaiting()));
 });
 self.addEventListener('activate',e=>{e.waitUntil(
   caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k))))
