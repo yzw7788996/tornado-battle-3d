@@ -341,7 +341,8 @@ let phase='menu',score=0,eaten=0,level=1,startT=0,elapsed=0,time=0;
 const T={x:760,y:2640,r:26,tx:760,ty:2640};
 const cam={x:760,y:2640};let zoom=1.18,shake=0,hintT=0,menuScene=true;
 let sucked=[],debris=[],parts=[],texts=[];
-let best=0;try{best=+localStorage.getItem('tornadoBest')||0}catch(e){}
+/* 独立存档键:classic 与 3D 版分数曲线不同,共用 tornadoBest 会互相覆盖最佳分 */
+let best=0;try{best=+localStorage.getItem('tornadoBestClassic')||0}catch(e){}
 $('best').textContent='最高分:'+best;
 
 /* ================= 音效 ================= */
@@ -404,7 +405,7 @@ $('again').onclick=()=>startGame();
 $('free').onclick=()=>{$('win').classList.add('hidden');phase='play';startT=performance.now()/1000-elapsed;};
 $('rst').onclick=()=>{if(phase!=='menu')startGame();};
 $('snd').onclick=()=>{muted=!muted;$('snd').textContent=muted?'🔇':'🔊';};
-function saveBest(){try{localStorage.setItem('tornadoBest',best)}catch(e){}}
+function saveBest(){try{localStorage.setItem('tornadoBestClassic',best)}catch(e){}}
 function fmt(s){const m=(s/60)|0,ss=(s%60)|0;return m+':'+String(ss).padStart(2,'0');}
 function win(){phase='win';
   const rec=score>best;if(rec){best=score;saveBest();}

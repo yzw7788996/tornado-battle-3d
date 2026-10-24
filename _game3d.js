@@ -37,7 +37,7 @@ catch(e){ // 说清原因并给出出口,而不是把整页换成一行判死刑
   String(e.message).slice(0,120):'WebGL 不可用')+'。可以换个浏览器,或在系统设置里开启图形加速后重新加载。');
  else document.body.innerHTML='<p style="color:#fff;padding:40px;font-size:18px">此浏览器不支持 WebGL,无法运行 3D 版。</p>';
  throw e;}
-renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,3));   // 画质增强轮:上限 2→3,3× 屏不再被压采样;掉帧由 qualityTick 沿 DPRS 自动降
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;
@@ -84,7 +84,7 @@ function applyAniso(){let n=0,sk=0;
  hit(scene.environment);hit(scene.background);
  return {n,sk};}
 /* 帧率自适应:低帧自动降采样保流畅 */
-const DPRS=[2,1.5,1.25,1];let qStep=0,fpsAcc=0,fpsN=0,qCool=0;
+const DPRS=[3,2,1.5,1.25,1];let qStep=0,fpsAcc=0,fpsN=0,qCool=0;   // 画质增强轮:梯子顶上加一档 3×,低端机路径不变
 function applyQ(){renderer.setPixelRatio(Math.min(devicePixelRatio||1,DPRS[qStep]));}
 let lastFPS=0;
 function qualityTick(dt){if(!qAuto)return;fpsAcc+=dt;fpsN++;qCool-=dt;
@@ -95,7 +95,7 @@ function qualityTick(dt){if(!qAuto)return;fpsAcc+=dt;fpsN++;qCool-=dt;
 
 const hemi=new THREE.HemisphereLight(0xbcd4ee,0x5c7248,.42);scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xffe2b0,1.66);
-sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+sun.castShadow=true;sun.shadow.mapSize.set(4096,4096);   // 画质增强轮:阴影贴图翻倍,楼影/树影边缘更锐
 Object.assign(sun.shadow.camera,{left:-430,right:430,top:430,bottom:-430,near:20,far:2400});
 sun.shadow.camera.updateProjectionMatrix();
 sun.shadow.bias=-.0006;
@@ -206,13 +206,9 @@ const SEA={x:0,z:0,w:560,h:960};
 ZR.beach=[{x:565,z:40,w:130,h:880}];
 ZR.grass=ZR.park.concat(ZR.suburb);
 ZR.city=ZR.suburb.concat(ZR.downtown);
-// 阈值按"分段收入"排过:实测 LV5→6 段 ~84 分/秒而 LV2 段 ~5 分/秒,旧表让 5→6 只用 2 秒连升,
-// 玩家来不及看清「下一级解锁」就已经过了。新表让相邻两级至少隔 6 秒、整局约 93 秒(与限时同量级)。
-/* 第一次"我变大了"必须在玩家还在乱点的头 20 秒内发生。
-   实测(随机点按的台架玩家,75s 三跑):TH[1]=48 时三跑全都没升级(分数 23~37,±30% 抖动),
-   降到 12 后 6.9s / 7.8s / 19.3s 三次全中。后面的门槛一律不动 ——
-   贪心 bot 的整局节奏(第 12 轮特意拉长到 ~2 分钟)不能被早期改动牵连。 */
-const TH=[0,12,144,304,640,1360,2240,3600];
+/* 还原轮:回到初始开源版(abaee0c,V3.1.0)的经典门槛 —— 满级 1250 分。"越吃越快变大"的爽感是这条曲线的本体;
+   精修期按"分段收入"拉长到 3600 是为了让整局与 2 分钟限时同量级,实测体感是升级变慢,按用户决定退回。 */
+const TH=[0,20,60,140,280,520,850,1250];
 const LVN=['微风小龙卷','街道捣蛋鬼','公园终结者','街区拆迁队','汽车收藏家','楼房终结者','摩天楼克星','天灾之王'];
 
 /* ---------- 地面贴图(噪声草地 + 沥青路 + 斑马线) ---------- */
@@ -486,7 +482,7 @@ function officePhotoTex(photoURI,glass,litP){const c=document.createElement('can
   g.fillStyle=ag;g.fillRect(0,340,512,172);
   noiseOn(g,512,512,500,.10);tex.needsUpdate=true;};
  img.src=photoURI;
- return new THREE.MeshStandardMaterial({map:tex,normalMap:TEX.office.normalMap,
+ return new THREE.MeshStandardMaterial({map:tex,normalMap:photoTex(PHOTO.concrete_nor,2.5,1.8),   // 画质增强轮:楼面换真照片法线(1024²),程序法线退役;concrete_nor 自初始版起就是死资产,本轮接线
   emissiveMap:TEX.office.emissiveMap,emissive:0xffffff,emissiveIntensity:.4,
   roughness:.82,metalness:.08,envMapIntensity:.5});}
 const BLD=[
@@ -1215,8 +1211,6 @@ function updateLockRings(){
   m.scale.set(s,s,1);sh.scale.set(s,s,1);
   m.material.opacity=(.34+.28*k)*pu;
   sh.material.opacity=Math.min(.9,(.42+.30*k)*pu);}}
-  // 旧值是代码里的公式常数 `(.20+.34k)*(1±.22)`(不是实测);那句"最淡一帧只有 6.9/255 的亮度差(实测 probe24)"**无法复核** —— `*p24*.log` 在本机现数 0 份,登记在 #119。
-  // "吃不动的会亮圈"这条信息在它最该出现的地方几乎看不见。脉动照留,但把地板抬起来。
 
 function updateRain(dt,pEsc){rain.material.opacity=pEsc*.4;
  if(pEsc<.02)return;
@@ -1231,7 +1225,7 @@ let probeCam=null,probeRT=null,probeMesh=null,probeTick=0;
 function setupProbe(){
  const sky=objects.find(o=>o.k==='sky');
  if(!sky||probeCam)return;
- probeRT=new THREE.WebGLCubeRenderTarget(256,{generateMipmaps:true,minFilter:THREE.LinearMipmapLinearFilter});
+ probeRT=new THREE.WebGLCubeRenderTarget(512,{generateMipmaps:true,minFilter:THREE.LinearMipmapLinearFilter});   // 画质增强轮:反射探针 256→512,玻璃塔倒影更清
  probeCam=new THREE.CubeCamera(1,6000,probeRT);
  probeCam.position.set(sky.x,120,sky.z);
  scene.add(probeCam);
@@ -1689,7 +1683,7 @@ function showUnlock(){const ps=unlockParts(),el=$('nextlv'),
 /* ---------- 新手引导:每步要达成才推进,玩过的人不再教 ---------- */
 const TUT=[
  {t:'点一下或按住拖动,风柱会跟着走',ok:()=>tutMoved>250},
- {t:'先吃 5 件小花小草,分数会开始涨',ok:()=>eaten>=5},   // 别说"变大":LV.2 要 12 分,吃 5 件还不会变大
+ {t:'先吃 5 件小花小草,分数会开始涨',ok:()=>eaten>=5},   // 别说"变大":LV.2 要 20 分,吃 5 件还不会变大
  {t:'带圈的是现在吃不动的,先绕开',ok:()=>lockSeen>0},    // 撞上一次锁圈就算学会,不必等到升级那一刻
  {t:'继续吃,长大就能卷汽车和树了',ok:()=>ateBig>0},      // 真卷起第一件 tier≥3 才算数,而不是"到了 LV.3"
  {t:'右下角金点是电视塔,卷它要 LV.8',ok:()=>level>=8,max:120}];   // 末级要等 LV8,曲线拉长后 45 秒兜底会把 ✓ 提前打上
@@ -1758,7 +1752,8 @@ let saveFailed=false;
 function saveRun(){if(retired||(phase!=='play'&&phase!=='paused')||mode!=='campaign')return null; // 退役的局:免费探索也不许再写回来
  try{localStorage.setItem(SKEY,JSON.stringify({v:1,seed:citySeed,
   d:destroyedIds.slice(-800),sc:scarList.slice(-50),st:stumpList.slice(-60),
-  w:wrecks.filter(w=>w.landed).slice(-60).map(w=>[w.k,
+  // 归属池取 userData.pool(startTear 标记的那份):w.k 从未被赋值,读它则续玩后瓦砾全变混凝土
+  w:wrecks.filter(w=>w.landed).slice(-60).map(w=>[w.m.userData.pool||'concrete',
    +w.m.position.x.toFixed(0),+w.m.position.y.toFixed(1),+w.m.position.z.toFixed(0),
    +w.m.rotation.x.toFixed(2),+w.m.rotation.z.toFixed(2),
    +w.m.scale.x.toFixed(2),+w.m.scale.y.toFixed(2),+w.m.scale.z.toFixed(2)]),
@@ -1793,7 +1788,7 @@ function continueGame(){const s=loadRun();if(!s||!s.seed)return startGame();
   const pool=POOLS.find(pp=>pp.k===wv[0])||POOLS[0];
   const m=new THREE.Mesh(pool.geo,pool.mat);
   m.position.set(wv[1],wv[2],wv[3]);m.rotation.set(wv[4],0,wv[5]);
-  m.scale.set(wv[6],wv[7],wv[8]);m.castShadow=true;scene.add(m);
+  m.scale.set(wv[6],wv[7],wv[8]);m.castShadow=true;m.userData.pool=pool.k;scene.add(m);
   wrecks.push({m,vy:0,rv:0,rest:wv[2],landed:true,shared:true});}
  if((s.rs||0)>0){RV.score=s.rs;RV.x=s.rx;RV.z=s.rz;rival.visible=true;}
  destroyedIds=(s.d||[]).slice();scarList=(s.sc||[]).slice();stumpList=(s.st||[]).slice();
@@ -1816,13 +1811,14 @@ function levelUp(){lvFlashT=2.2;$('lvname').textContent=lvLabel();
 const KINDNAMES={landmark:'黄金电视塔',car:'汽车',bus:'公交',truck:'卡车',house_s:'房子',house_b:'大宅',bld_m:'大楼',bld_l:'高楼',sky:'摩天楼',tree_s:'树木',tree_b:'大树',bush:'灌木',flower:'花',grass:'草',rock:'石块',boulder:'巨岩',bench:'长椅',lamp:'路灯',trash:'垃圾桶',bike:'单车',water:'水塔',ped:'行人',pedbike:'骑车人',pedcrouch:'市民',palm:'棕榈',umbrella:'遮阳伞',snowman:'雪人',skier:'滑雪者'};
 let kindStats={};
 function consume(o){score+=o.pts;eaten++;stats.eaten++;kindStats[o.k]=(kindStats[o.k]||0)+1;
+ comboN=comboT>0?comboN+1:1;comboT=COMBO_T;
+ // 峰值要取在自增之后:取在之前 ×N 连击只会记成 N-1(横幅在 ×25 庆祝,「连击大师」却要 26 连才解锁)
  if(comboN>stats.maxCombo)stats.maxCombo=comboN;
  if(comboN>runCombo)runCombo=comboN;   // 本局峰值:结算卡要说"这一局"的连击,不是账号累计的
  if(score>best&&!(mode==='rush'&&rushEnded)){best=score;saveBest();}
  // ↑ 限时挑战结算之后点「继续闲逛」的那段没有时间限制,不该再把全局最高分抬上去
  // (实测:4671 分结算 → 闲逛 75 秒到 8384,而"挑战最佳"停在 4669,两个数自相矛盾)
  checkAchv();
- comboN=comboT>0?comboN+1:1;comboT=COMBO_T;
  ftext(T.x,150*Math.pow(T.r/26,.75)*.7,T.z,'+'+o.pts,o.pts);
  burstCols(POOLMAP[o.k]||'concrete',colsOf(o),1+((Math.random()*2)|0));
  if(o.tier<=2)popSnd(o);else crackSnd(POOLMAP[o.k]||'concrete');
@@ -2148,7 +2144,7 @@ function update(dt){elapsed=performance.now()/1000-startT;const p=Math.min(1,sco
   T.tx=clamp(T.x+kx/m*300,40,WORLD-40);T.tz=clamp(T.z+ky/m*300,40,WORLD-40);}
  const dx=T.tx-T.x,dz=T.tz-T.z,d=Math.hypot(dx,dz);
  vx=0;vz=0;
- if(d>6){const spd=Math.max(200,258-T.r*.39),v=Math.min(spd,d*6);
+ if(d>6){const spd=Math.max(140,255-T.r*.75),v=Math.min(spd,d*6);   // 还原轮:初始版移速(精修期调快的 200/258 那组撤)
   vx=dx/d*v;vz=dz/d*v;T.x+=vx*dt;T.z+=vz*dt;}
  shake*=Math.exp(-dt*3.4);if(shake<1e-4)shake=0; // 指数衰减:线性尾巴会让小撞击"拖一下"
  hintT-=dt;lockHintT-=dt;updateLockRings();hudChrome(dt);tutTick(dt);
@@ -2278,11 +2274,7 @@ function updateCamera(dt){
  if(phase==='menu'){const a=time*.1;
   camT.set(T.x+Math.sin(a)*430,260+Math.sin(time*.31)*30,T.z+Math.cos(a)*430);
   lookT.lerp(_p3.set(T.x,50,T.z),Math.min(1,dt*2));}
- else{const PULL=.78;// 第 67 轮按重复采样定的档。定档依据其实是**模拟档**:在 sha=5dac4c9352c09cdb(.65 树)上挂 CAM_F=1.2 钩子,verify8 REP=3 印 LV1=0.0583 LV8=0.4569 比 7.84(r66k_v8_far.log 抬头自己写着「有效 PULL=0.720」—— 那是 #107 已否证的硬编码基线算的,不当证据)。
-  // 换成现货 PULL=.78 之后,第 67 轮全量链复验过的那棵树(sha=211ae231ef641d06,见 r67b_status.txt 的 same=yes;桥是扫档台账的「扫档树:sha=同一串」+「扫档基线:产物 const PULL=.78」)上 verify8 REP=3 实测印的是 LV1=0.0438 LV8=0.4306 比 9.83(r67b_v8.log),三次原始 LV1 0.0583/0.0438/0.0261 ⇒ 极差/最小 2.23×,LV1 自身的噪声就盖得住档间差的一半(#91 的波动门还没过);同一行两臂印的是 OLD=fail NEW=PASS ⇒ 成长对比这一条在本档过。
-  // 这行注释之后又打过别的补丁并重建过,这份注释**不写「当前 sha」**——它每重建一次就过期一次,而权威本来就在链头 pin 的那两份文件里(*_final_artifact.txt 与 *_status.txt 的 chain-pre/same= 行)。⇒ 上面那些数指的是**被复验过的那棵树**,不是正在被构建的这份文件。
-  // .65 那档 8 样中位 .114 过不了 0.10 地板,弃。中心遮挡那一格**没定住**(同一档连采三样极差 38×,波动门没过)⇒ 这里不写"过了",见 #91。自然机位距 382→约 300 以 verify8 的到位证人实测为准。清晰度只实测过 f=1→0.6 两档:px/米 3.99→7.28、纹素/px 1.90→1.13、×1.82(probe103,r66c_probe103.log);本档 ~5.2 是按 1/距离 折算,不是实测(#98 欠着这一格)。
-  camT.set(T.x,lookT.y+(150+T.r*2.6-lookT.y)*PULL,T.z+(235+T.r*3.6)*PULL);
+ else{camT.set(T.x,150+T.r*2.6,T.z+235+T.r*3.6);   // 还原轮:回到初始版机位(PULL 插值连同定档注释一并撤,量化记录见 DEVLOG 第 67 轮)
   lookT.lerp(_p3.set(T.x,T.r*.9,T.z),Math.min(1,dt*5));}
  camera.position.lerp(camT,Math.min(1,dt*(phase==='menu'?1.2:3.5)));
  if(shake>0&&!reduceMotion){const amp=shake*shake*(9+T.r*.05); // 平方:小撞几乎不震;乘半径:大风暴才看得出震
