@@ -886,15 +886,24 @@ const tornado=new THREE.Group();scene.add(tornado);
 const lean=new THREE.Group();tornado.add(lean);
 const funnelUni={time:{value:0},opK:{value:1},
  cDark:{value:new THREE.Color(.40,.35,.29)},cLight:{value:new THREE.Color(.86,.80,.70)}};
-function smokeTex(){const c=document.createElement('canvas');c.width=c.height=256;
- const g=c.getContext('2d');g.fillStyle='#808080';g.fillRect(0,0,256,256);
- for(let i=0;i<60;i++){const x0=rnd(0,256),w=rnd(6,26),amp=rnd(6,20),ph=rnd(0,6.28);
+function smokeTex(){const c=document.createElement('canvas');c.width=c.height=512;
+ /* 皮肤纹理(精修#137,V1.8-2 挂账):256→512,在噪声烟缕之上加横向云层带 —— 风柱从"一团噪声"
+    变成"一层一层的涡旋云"。色调与着色器 uniform 不动(只升不降);
+    横向平移三重绘制保 X 无缝,云层带纵向也三重绘制保 Y 无缝 —— 贴图 vUv.y*1.5 连续滚动,Y 接缝会滚过画面。 */
+ const g=c.getContext('2d');g.fillStyle='#808080';g.fillRect(0,0,512,512);
+ for(let i=0;i<90;i++){const x0=rnd(0,512),w=rnd(5,30),amp=rnd(5,24),ph=rnd(0,6.28);
   const col=Math.random()<.5?'255,255,255':'30,30,30';
-  g.strokeStyle='rgba('+col+','+rnd(.06,.16).toFixed(2)+')';g.lineWidth=w;
-  for(const off of [-256,0,256]){g.beginPath();g.moveTo(x0+off,0);
-   for(let y=0;y<=256;y+=16)g.lineTo(x0+off+Math.sin(y*.05+ph)*amp,y);g.stroke();}}
- for(let i=0;i<900;i++){g.fillStyle='rgba(0,0,0,'+rnd(.02,.09).toFixed(2)+')';
-  g.fillRect(rnd(0,256),rnd(0,256),2,2);}
+  g.strokeStyle='rgba('+col+','+rnd(.05,.15).toFixed(2)+')';g.lineWidth=w;
+  for(const off of [-512,0,512]){g.beginPath();g.moveTo(x0+off,0);
+   for(let y=0;y<=512;y+=16)g.lineTo(x0+off+Math.sin(y*.05+ph)*amp,y);g.stroke();}}
+ for(let i=0;i<8;i++){const y=rnd(0,512),h=rnd(20,54);
+  const gr=g.createLinearGradient(0,y-h,0,y+h);
+  gr.addColorStop(0,'rgba(0,0,0,0)');
+  gr.addColorStop(.5,Math.random()<.5?'rgba(0,0,0,.11)':'rgba(255,255,255,.09)');
+  gr.addColorStop(1,'rgba(0,0,0,0)');
+  for(const off of [-512,0,512]){g.fillStyle=gr;g.fillRect(0,y-h+off,512,h*2);}}
+ for(let i=0;i<2200;i++){g.fillStyle='rgba(0,0,0,'+rnd(.02,.09).toFixed(2)+')';
+  g.fillRect(rnd(0,512),rnd(0,512),2,2);}
  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;}
 const smokeT=smokeTex();
 function funnelMat(op,mul){return new THREE.ShaderMaterial({
