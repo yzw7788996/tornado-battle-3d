@@ -2216,6 +2216,12 @@ const ACHV=[
  {id:'e1000', icon:'🌪️', name:'千物斩', field:'eaten', need:1000, unit:'件'},
  {id:'cb1', icon:'🔴', name:'宿敌克星', field:'comebacks', need:1, unit:'次反超'},
  {id:'r5', icon:'⏱', name:'挑战者', field:'rushPlays', need:5, unit:'局限时'},
+ /* 第二波(DEVLOG 15/39 轮挂账的"成就第二波"):只补高级档与新维度,不重复旧门槛;
+    nightWins/rushBest 是新统计位,分别由 win()(夜城那一局)与 endRush()(限时结算)落账 */
+ {id:'w10', icon:'👑', name:'风暴领主', field:'wins', need:10, unit:'次通关'},
+ {id:'c50', icon:'⚡', name:'连击宗师', field:'maxCombo', need:50, unit:'连'},
+ {id:'n1', icon:'🌙', name:'夜行者', field:'nightWins', need:1, unit:'次夜城'},
+ {id:'r2k', icon:'⏱', name:'限时好手', field:'rushBest', need:2000, unit:'分限时'},
 ].map(a=>(a.test=s=>(+s[a.field]||0)>=a.need,a.prog=s=>Math.min(+s[a.field]||0,a.need),a));
 if(!stats.achv)stats.achv={};
 function renderAchv(){const el=$('achv');
@@ -2421,6 +2427,7 @@ function endRush(){phase='win';pushHistory(runLabel(),score,120-rushT);
  if(rec){rushBest=score;
   try{localStorage.setItem('tornadoBestRush',rushBest)}catch(e){}
   renderBests();} // 破纪录的这一刻就重画:菜单不许等到刷新页面才认账
+ stats.rushBest=Math.max(stats.rushBest||0,score);   // 限时好手成就的账:进 stats 才能被 checkAchv 的 field 管线读到(全局 rushBest 只服务菜单读数)
  $('winTitle').textContent='⏱ 时间到!';
  $('stats').innerHTML='<div class="st"><b>'+score+'</b><span>本局得分</span></div>'+
   '<div class="st"><b>'+eaten+'</b><span>吞噬物件</span></div>'+
@@ -2430,7 +2437,7 @@ function endRush(){phase='win';pushHistory(runLabel(),score,120-rushT);
  $('timerbox').style.display='none';
  $('rushgoal').style.display='none'; // 结算屏不再报目标:update() 到 phase='win' 就不跑了,谁写下这个状态谁负责收
  $('win').classList.remove('hidden');
- saveStats();statline();/* #220 限时的这一局到此为止:菜单那行当场认账 */}
+ checkAchv();saveStats();statline();/* #220 限时的这一局到此为止:菜单那行当场认账 */}
 
 function kindLine(){const top=Object.entries(kindStats).sort((a,b)=>b[1]-a[1]).slice(0,4);
  // 结算卡只有三格:明细这行小字也住在同一个 flex 行里,不给它 width:100% 让它自己占一行,
@@ -2509,7 +2516,8 @@ function snapshotCity(){
  return url;}
 function setWinBg(url){$('win').style.backgroundImage=
  'radial-gradient(ellipse at 50% 38%,rgba(12,20,15,.55),rgba(5,9,7,.93) 78%),url('+url+')';}
-function win(){phase='win';stats.wins++;pushHistory(runLabel(),score,elapsed);saveStats();statline();checkAchv();
+function win(){phase='win';stats.wins++;if(isNight)stats.nightWins=(stats.nightWins||0)+1;   // 夜行者成就的账:夜城通关单独计数(闯关的 mode 位与夜城共享,靠 isNight 区分)
+ pushHistory(runLabel(),score,elapsed);saveStats();statline();checkAchv();
  clearRun(); // 通关的这局不该再出现在「▶ 继续上次」里
  fovKick=14; // 结局慢推镜头
  for(const bm of BLD)bm.emissiveIntensity=2.0; // 全城窗灯齐闪
