@@ -142,8 +142,6 @@ const FLOWC=['#ff8ac2','#ffd23e','#c39bff','#ff9d7a'];
 
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);
   ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
-function shadow(rx,ry){ctx.fillStyle='rgba(0,0,0,.17)';ctx.beginPath();
-  ctx.ellipse(rx,ry,0,0,0,0,0);ctx.fill();}
 
 /* 物件类型表:tier=需要龙卷风达到的等级 */
 const TYPES=[
@@ -339,7 +337,7 @@ function buildMinimap(){minimapBase=document.createElement('canvas');
 /* ================= 状态 ================= */
 let phase='menu',score=0,eaten=0,level=1,startT=0,elapsed=0,time=0;
 const T={x:760,y:2640,r:26,tx:760,ty:2640};
-const cam={x:760,y:2640};let zoom=1.18,shake=0,hintT=0,menuScene=true;
+const cam={x:760,y:2640};let zoom=1.18,shake=0,hintT=0;
 let sucked=[],debris=[],parts=[],texts=[];
 /* 独立存档键:classic 与 3D 版分数曲线不同,共用 tornadoBest 会互相覆盖最佳分 */
 let best=0;try{best=+localStorage.getItem('tornadoBestClassic')||0}catch(e){}
@@ -397,7 +395,7 @@ function reset(){score=0;eaten=0;level=1;elapsed=0;
   sucked=[];debris=[];parts=[];texts=[];shake=0;hintT=0;
   $('lvname').textContent='Lv.1 · '+LVN[0];$('fill').style.width='0%';
   spawnAll();startT=performance.now()/1000;}
-function startGame(){reset();phase='play';menuScene=false;
+function startGame(){reset();phase='play';
   $('menu').classList.add('hidden');$('win').classList.add('hidden');
   showHint('先去吃花花草草,把自己吃大!',2600);}
 $('start').onclick=()=>{audioUnlock();if(AC&&AC.state==='suspended')AC.resume();startGame();};
@@ -438,7 +436,7 @@ function consume(s){score+=s.o.pts;eaten++;
   if(score>best){best=score;saveBest();}
   texts.push({x:T.x,y:T.y-90-s.o.r,txt:'+'+s.o.pts,t:0});
   debris.push({ang:rnd(0,6.28),dist:T.r*rnd(.85,1.4),h:rnd(15,30)+T.r*rnd(0,.7),
-    spd:rnd(2,4.5)*(Math.random()<.5?1:1),sz:rnd(3,6.5),c:debrisColor(s.o),wob:rnd(0,6.28)});
+    spd:rnd(2,4.5),sz:rnd(3,6.5),c:debrisColor(s.o),wob:rnd(0,6.28)});
   if(debris.length>70)debris.shift();
   popSnd(s.o);
   if(s.o.tier>=5){shake=Math.min(14,shake+3.5+s.o.r*.08);vib(35);}
@@ -466,7 +464,8 @@ function update(dt){const p=Math.min(1,score/TH[7]);
     const dd=Math.hypot(o.x-T.x,o.y-T.y),canSuck=o.tier<=level;
     if(canSuck&&dd<range+o.r)capture(o,dd);
     else{if(!canSuck&&dd<range+o.r+70){o.lock=1.1;
-      if(hintT<=0){showHint('等级不够!先吃点小的,长大后再来卷它');hintT=3.2;}}
+      if(hintT<=0&&o.lockLv!==level){o.lockLv=level;   // 精修#120:按物件按等级只说一次(对齐 3D 的 locked 语义),不再每 3.2 秒复读
+        showHint('等级不够!先吃点小的,长大后再来卷它');hintT=3.2;}}
       o.wob=(canSuck&&dd<range*1.7)?Math.sin(time*16+o.seed)*2.2:0;}}
   if(objects.some(o=>o.dead))objects=objects.filter(o=>!o.dead);
   for(let i=sucked.length-1;i>=0;i--){const s=sucked[i];s.t+=dt;
@@ -577,13 +576,14 @@ function drawMinimap(){if(!minimapBase)return;
 
 /* ================= 主循环 ================= */
 let last=0;
+const WSTEP=.05;   // 精修#120:对齐 3D 版 20Hz 定步长 —— 旧写法每帧钳 .05,低帧率设备世界比墙钟慢
 function frame(ts){requestAnimationFrame(frame);
-  const now=ts/1000;let dt=Math.min(.05,now-(last||now));last=now;time+=dt;
-  if(phase==='play'){elapsed=now-startT;update(dt);}
-  else if(phase==='win'){update(dt);}
-  else{ // 菜单背景也让场景微微活动
-    for(const d of debris)d.ang+=d.spd*dt;}
-  draw();audioFrame(dt);}
+ const now=ts/1000,raw=Math.min(.2,now-(last||now));last=now;time+=raw;
+ if(phase==='play'){elapsed=now-startT;
+  let rem=raw;for(let k=0;k<4&&rem>1e-4;k++){const h=Math.min(WSTEP,rem);update(h);rem-=h;}}
+ else{ // 菜单/结算:只让碎片微动 —— 结算后 update 不再跑,分数不会在结算卡出现前继续漂(3D 版同类修复)
+  for(const d of debris)d.ang+=d.spd*raw;}
+ draw();audioFrame(raw);}
 spawnAll();
 requestAnimationFrame(frame);
 </script>
