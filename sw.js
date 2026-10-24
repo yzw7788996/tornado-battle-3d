@@ -5,10 +5,14 @@ self.addEventListener('install',e=>{
     "断网还能玩"这条承诺不回退;manifest/图标只是锦上添花,逐项容错 ——
     旧写法 addAll 全有或全无,一个图标 404 就把整个离线安装拖垮(精修#121 立案即修)。 */
  e.waitUntil(caches.open(CACHE).then(async c=>{
-  await c.put(PAGE,await fetch(PAGE));
+  /* r.ok 守卫(精修#124):实测附件 404 时旧写法把 404 响应原样写进缓存,离线期"命中"的其实是 404,
+     且坏条目要等下一次 install 才有机会清掉 —— 非 2xx 一律不入缓存。主页面同理:404 也算"拉不下来",
+     抛错让安装失败、保住上一版缓存。 */
+  const r0=await fetch(PAGE);if(!r0.ok)throw new Error('PAGE '+r0.status);
+  await c.put(PAGE,r0);
   await Promise.allSettled(['./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
    './icons/icon-192-maskable.png','./icons/icon-512-maskable.png']   // 精修#122:maskable 图标进了 manifest,离线安装提示也要能取到
-   .map(u=>fetch(u).then(r=>c.put(u,r))));
+   .map(u=>fetch(u).then(r=>{if(!r.ok)throw new Error(u+' '+r.status);return c.put(u,r);})));
  }).then(()=>self.skipWaiting()));
 });
 self.addEventListener('activate',e=>{e.waitUntil(
