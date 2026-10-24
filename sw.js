@@ -1,4 +1,4 @@
-const CACHE='tornado-v3';   // 精修#121:还原+画质增强是一次大版本(6.3MB),缓存键随版本走;旧键由 activate 整删,离线副本不会停在上一版
+const CACHE='tornado-3.2.0';   // 缓存键由 build.py 从 _game3d.js 的 VER 盖章(精修#136),手改会被下次构建覆盖;旧键由 activate 整删,离线副本不会停在上一版
 const PAGE='./index.html';   // 页面只有一个固定缓存键:玩家可能从 / 、/index.html 或子路径进来
 self.addEventListener('install',e=>{
  /* 主页面是离线兜底的唯一关键件:它拉不下来就宁可安装失败、留住上一版缓存(旧 SW 继续服务),
