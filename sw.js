@@ -6,7 +6,8 @@ self.addEventListener('install',e=>{
     旧写法 addAll 全有或全无,一个图标 404 就把整个离线安装拖垮(精修#121 立案即修)。 */
  e.waitUntil(caches.open(CACHE).then(async c=>{
   await c.put(PAGE,await fetch(PAGE));
-  await Promise.allSettled(['./manifest.json','./icons/icon-192.png','./icons/icon-512.png']
+  await Promise.allSettled(['./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
+   './icons/icon-192-maskable.png','./icons/icon-512-maskable.png']   // 精修#122:maskable 图标进了 manifest,离线安装提示也要能取到
    .map(u=>fetch(u).then(r=>c.put(u,r))));
  }).then(()=>self.skipWaiting()));
 });
