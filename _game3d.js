@@ -1304,8 +1304,23 @@ rLean.add(rp2p);
 const rp=[];for(let i=0;i<RN2;i++)rp.push({t:Math.random(),a:rnd(0,6.28),s:rnd(2,4),j:rnd(.8,1.2)});
 scene.add(rival);rival.visible=false;
 function rivalUpdate(dt){if(phase==='menu')return;
+ /* 被吞后的重生倒计时(精修#205,io 类标准终局:大吃小 —— 同类 hole.io/tornado.io 都以"吞掉对手"收尾,
+    而我们的对手此前碰不得,支配感爽点缺失):吃掉的一方按对手积分拿大额奖励,对手 15 秒后异地零分重生。 */
+ if(RV.dead>0){RV.dead-=dt;
+  if(RV.dead<=0){RV.x=rnd(200,WORLD-200);RV.z=rnd(200,600);RV.tgt=null;RV.dead=0;rival.visible=true;
+   if(phase==='play')showHint('对手卷土重来了!',2000);}
+  else return;}
  RV.lvl=Math.min(8,1+((RV.score/150)|0));
  RV.r=20+Math.min(40,RV.score*.03);
+ /* 吞噬判定:显著更大才吃得动(高 2 级),近身即吞 —— 单向支配;反向(对手吃玩家)涉及败局设计,挂账候选 */
+ if(level>=RV.lvl+2&&RV.dead<=0&&Math.hypot(RV.x-T.x,RV.z-T.z)<T.r*2+RV.r){
+  const gain=100+Math.round(RV.score*.4);
+  score+=gain;stats.rivalEats=(stats.rivalEats||0)+1;saveStats();checkAchv();
+  banner('吞噬对手!+'+gain);vibTier(8);shake=Math.min(1,shake+.5);fovKick=8;
+  burstCols('metal',[0xff5a4a,0xffd75e],10);blip(180,900,.35,.12,'sawtooth');
+  RV.dead=15;RV.score=0;RV.lvl=1;RV.r=20;rival.visible=false;
+  if(RV.pill)RV.pill.textContent='🔴 对手 被吞!';
+  return;}
  // 找最近的可吃目标(避开玩家嘴边)
  let best=null,bd=1e9;
  const steal=Math.random()<.3; // 30% 概率故意抢玩家身边的目标
@@ -1642,6 +1657,7 @@ const ACHV=[
  {id:'e1000', icon:'🌪️', name:'千物斩', field:'eaten', need:1000, unit:'件'},
  {id:'cb1', icon:'🔴', name:'宿敌克星', field:'comebacks', need:1, unit:'次反超'},
  {id:'r5', icon:'⏱', name:'挑战者', field:'rushPlays', need:5, unit:'局限时'},
+ {id:'rv1', icon:'🌀', name:'吞天者', field:'rivalEats', need:1, unit:'次吞噬'},   // 精修#205:吞掉对手的战绩徽章(成就二波同管线)
  /* 第二波(DEVLOG 15/39 轮挂账的"成就第二波"):只补高级档与新维度,不重复旧门槛;
     nightWins/rushBest 是新统计位,分别由 win()(夜城那一局)与 endRush()(限时结算)落账 */
  {id:'w10', icon:'👑', name:'风暴领主', field:'wins', need:10, unit:'次通关'},
@@ -1971,7 +1987,7 @@ function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats=
  scars.length=0;
  for(const w of wrecks){scene.remove(w.m);if(!w.shared&&w.m.geometry)w.m.geometry.dispose();}
  wrecks.length=0;destroyedIds=[];scarList=[];stumpList=[];saveCool=0;retired=0; // 新局:冷却与退役位都要重来
- RV.score=0;RV.lvl=1;RV.r=20;RV.x=2400;RV.z=600;RV.tgt=null;RV.retarget=0;rival.visible=false;
+ RV.score=0;RV.lvl=1;RV.r=20;RV.x=2400;RV.z=600;RV.tgt=null;RV.retarget=0;RV.dead=0;rival.visible=false;
  for(const pool of POOLS){
   for(let i=0;i<pool.dinf.length;i++)pool.dinf[i].on=false;
   for(let i=0;i<pool.dinf.length;i++){_e.set(0,0,0);_q.setFromEuler(_e);_s.set(0,0,0);
