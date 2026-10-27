@@ -1081,6 +1081,17 @@ const cArrow=new THREE.Mesh(new THREE.ConeGeometry(9,24,4),
  new THREE.MeshBasicMaterial({color:0xffd75e}));
 cArrow.rotation.x=Math.PI/2;cArrow.position.z=13;compass.add(cArrow);
 scene.add(compass);compass.visible=false;
+/* 信标光晕(#231):#230 的金呼吸在游戏距离只有 1-2px,"远处看得见"没兑现 —— 加法混合的
+   径向渐变光晕 sprite(程序纹理,不占贴图资产;fog:false 不受雾染是关键,塔在雾里也亮),
+   呼吸与信标同相位;挂 scene 不挂塔组(reset/spawnAll 每局重建塔,sprite 独立存活) */
+const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;
+ const x=c.getContext('2d');const g=x.createRadialGradient(32,32,2,32,32,30);
+ g.addColorStop(0,'rgba(255,240,200,1)');g.addColorStop(.4,'rgba(255,215,94,.55)');
+ g.addColorStop(1,'rgba(255,215,94,0)');
+ x.fillStyle=g;x.fillRect(0,0,64,64);return new THREE.CanvasTexture(c);})();
+const beaconGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0xffd75e,
+ transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false}));
+beaconGlow.visible=false;scene.add(beaconGlow);
 let landmarkRef=null;
 
 function updateTornadoVisual(dt){
@@ -1148,8 +1159,14 @@ function updateTornadoVisual(dt){
     bc.scale.setScalar(1+.45*(Math.sin(time*3.2)*.5+.5));}   /* 尺度呼吸:2px 上的亮度闪在游戏距离读不出,
      大小闪烁(1↔1.45×,面积近 3 倍)才是远处看得见的"塔在呼吸"——#230 近景取证塔身像素淹没信标后补的 */
    else{bc.material.color.setHex(0xff2222);bc.material.emissive.setHex(0xff1111);
-    bc.material.emissiveIntensity=2;bc.scale.setScalar(1);}}}
- else compass.visible=false;}
+    bc.material.emissiveIntensity=2;bc.scale.setScalar(1);}}
+  /* 光晕(#231):与信标同相位呼吸,只在此处现身/隐藏 —— 外层 else(塔没了/菜单)也负责熄灭,不留悬挂亮斑 */
+  beaconGlow.visible=level>=8&&towerEdible();
+  if(beaconGlow.visible){const ph=Math.sin(time*3.2);
+   beaconGlow.position.set(landmarkRef.x,290,landmarkRef.z);
+   beaconGlow.scale.setScalar(34+ph*16);
+   beaconGlow.material.opacity=.55+ph*.3;}}
+ else{compass.visible=false;beaconGlow.visible=false;}}
 
 /* ---------- 闪电 ---------- */
 let boltT=rnd(4,9),hemiBase=.42,flashActive=false,stormLevel=0;
