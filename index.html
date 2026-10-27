@@ -1651,7 +1651,7 @@ parkCarry();
 function spawnCarry(k){const d=carryD.find(c=>!c.on);if(!d)return;   /* 满了就不再长:壮观点到为止 */
  /* 半径/尺寸一律用 26 基准的局部单位:tornado 组每帧已按 T.r/26 整体缩放,这里再乘 T.r 等于算两遍
     ——217 轮投影实证:75 级时随行圈世界半径 322~500,该深度水平半视宽仅 ~117,24 块全部出框(inN=0) */
- d.on=true;d.a=rnd(0,6.28);d.r=26*rnd(1.35,2.1);d.y=rnd(6,64);d.s=rnd(.35,.9);d.sz=rnd(1.4,3.2);
+ d.on=true;d.k0=k;d.a=rnd(0,6.28);d.r=26*rnd(1.35,2.1);d.y=rnd(6,64);d.s=rnd(.35,.9);d.sz=rnd(1.4,3.2);
  /* 形状语言(精修#210):同一 jaggedBox 靠非均匀比例读出"这是什么" —— 木料长条/车壳扁片/树叶团簇,
     石头保方,混凝土厚板;比例与 DEBNAT 同出处(POOLMAP),色形一套真相 */
  const pk=POOLMAP[k]||'concrete';
@@ -2450,6 +2450,9 @@ function saveRun(){if(retired||(phase!=='play'&&phase!=='paused')||mode!=='campa
    +w.m.position.x.toFixed(0),+w.m.position.y.toFixed(1),+w.m.position.z.toFixed(0),
    +w.m.rotation.x.toFixed(2),+w.m.rotation.z.toFixed(2),
    +w.m.scale.x.toFixed(2),+w.m.scale.y.toFixed(2),+w.m.scale.z.toFixed(2)]),
+  // 裙摆随行存原始物件键(存 k0 而非 pk:重放走 spawnCarry 同一条路,色/形/比例天然一致);
+  // 续玩只回分数不回裙摆的话,战利品视觉身份清零——207~217 建的裙摆体系缺这最后一块
+  cy:carryD.filter(c=>c.on).map(c=>c.k0),
   rs:RV.score,rx:Math.round(RV.x),rz:Math.round(RV.z),
   score,eaten,cb:runCombo,n:isNight?1:0,px:Math.round(T.x),pz:Math.round(T.z),t:Math.round(elapsed)}));
   saveFailed=false;return true}catch(e){saveFailed=true;return false}}
@@ -2483,6 +2486,7 @@ function continueGame(){const s=loadRun();if(!s||!s.seed)return startGame();
   m.position.set(wv[1],wv[2],wv[3]);m.rotation.set(wv[4],0,wv[5]);
   m.scale.set(wv[6],wv[7],wv[8]);m.castShadow=true;m.userData.pool=pool.k;scene.add(m);
   wrecks.push({m,vy:0,rv:0,rest:wv[2],landed:true,shared:true});}
+ for(const kk of (s.cy||[]))spawnCarry(kk);   // 裙摆还原:上面 reset 已清槽,按存档重挂;旧档无 cy=空数组,行为与从前一致
  if((s.rs||0)>0){RV.score=s.rs;RV.x=s.rx;RV.z=s.rz;rival.visible=true;}
  destroyedIds=(s.d||[]).slice();scarList=(s.sc||[]).slice();stumpList=(s.st||[]).slice();
  T.x=T.tx=s.px;T.z=T.tz=s.pz;camT.set(T.x,300,T.z+480);lookT.set(T.x,0,T.z);
