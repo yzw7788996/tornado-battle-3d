@@ -3153,7 +3153,10 @@ function frame(ts){requestAnimationFrame(frame);syncInert();
  if(hitstop>0){hitstop-=raw;dt=raw*(reduceMotion?.6:.14);} // 顿帧只压模拟步长;用时仍走墙钟
  time+=dt;
  for(const c of clouds){c.position.x+=c.userData.v*dt;if(c.position.x>3400)c.position.x=-200;}
- if(waterMat.map)waterMat.map.offset.x+=dt*.018,waterMat.map.offset.y+=dt*.008;
+ /* 水面浪涌(#237):潮流速度随风暴等级加速(满级 ×3.2)—— 天色/闪电/人潮/海鸥都在说"风暴变大了",
+    水面却匀速流淌就穿帮;同用 stormLevel 一源,海面从平流读成翻涌 */
+ if(waterMat.map){const su=1+stormLevel*2.2;
+  waterMat.map.offset.x+=dt*.018*su;waterMat.map.offset.y+=dt*.008*su;}
  for(const gu of gulls){gu.a+=gu.spd*dt;gu.flap+=dt*9;
   /* 海鸥避风(#235):鸟群原本绕固定圆心 oblivious,风暴压到头顶也不逃。风柱 260 内:圆心背风漂移 +
      受惊爬升(惊鸟往高处飞,封顶 基准+90);风停后高度缓回原位,圆心不回迁 —— 被惊走就是惊走了。
