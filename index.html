@@ -2428,6 +2428,14 @@ function nextGoalLine(){const lock=ACHV.filter(a=>!stats.achv[a.id]);
  for(const a of lock){const r=(a.need-a.prog(stats))/a.need;if(r<br){br=r;best=a;}}
  return '<div style="width:100%;font-size:12px;opacity:.85;margin:6px 0 0">🎯 下一枚成就:再 '
   +(best.need-best.prog(stats))+' '+best.unit+' → '+best.icon+best.name+'</div>';}
+/* 局间对比(#240):「比上局 ↑N」—— 结算屏的进步感钩子(调研:局末 personal-best 对比是
+   one-more-run 的标准件);只比同模式上一次(history 按标签找,跨模式不比),打平不显示 */
+function lastRunLine(){const h=stats.history||[];if(h.length<2)return '';
+ const prev=h.find((x,i)=>i>0&&x.m===h[0].m);
+ if(!prev||prev.s===score)return '';
+ const d=score-prev.s;
+ return '<div style="width:100%;font-size:12px;opacity:.85;margin:4px 0 0">'
+  +(d>0?'📈 比上局 ↑'+d:'📉 比上局 ↓'+(-d))+'</div>';}
 let hintTO=null,lockHintT=0;
 /* 下一级解锁了什么:直接告诉玩家该去找什么吃 */
 /* 这座塔在当前模式卷不卷得动 —— 唯一真相。无尽/雪原(雪原复用 endless 的 mode 位)按设计
@@ -2647,7 +2655,7 @@ function endRush(){phase='win';pushHistory(runLabel(),score,120-rushT);
  $('winTitle').textContent='⏱ 时间到!';
  $('stats').innerHTML='<div class="st"><b>'+score+'</b><span>本局得分</span></div>'+
   '<div class="st"><b>'+eaten+'</b><span>吞噬物件</span></div>'+
-  '<div class="st"><b>'+bestCell+'</b><span>'+(mode==='daily'?'今日最佳':'挑战最佳')+'</span></div>'+kindLine()+nextGoalLine();
+  '<div class="st"><b>'+bestCell+'</b><span>'+(mode==='daily'?'今日最佳':'挑战最佳')+'</span></div>'+kindLine()+nextGoalLine()+lastRunLine();
  $('rec').style.display=rec?'block':'none';
  lastIsRecord=rec;
  $('timerbox').style.display='none';
@@ -2762,7 +2770,7 @@ function win(){phase='win';stats.wins++;if(isNight)stats.nightWins=(stats.nightW
  setTimeout(()=>{if(phase!=='win')return;
   $('stats').innerHTML='<div class="st"><b>'+fmt(elapsed)+'</b><span>总用时</span></div>'+
    '<div class="st"><b>'+eaten+'</b><span>吞噬物件</span></div>'+
-   '<div class="st"><b>'+score+'</b><span>最终得分</span></div>'+kindLine()+nextGoalLine();
+   '<div class="st"><b>'+score+'</b><span>最终得分</span></div>'+kindLine()+nextGoalLine()+lastRunLine();
   $('rec').style.display=rec?'block':'none';
   lastIsRecord=rec;
   setWinBg(bgUrl);lastRuinUrl=bgUrl;
