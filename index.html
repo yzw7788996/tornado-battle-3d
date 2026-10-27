@@ -1615,7 +1615,7 @@ for(const pool of POOLS){
   pool.mesh.setColorAt(i,_col.set(0xffffff));}
  lean.add(pool.mesh);}
 function spawnDebris(kind,cs,n){const pool=POOLS.find(p=>p.k===kind)||POOLS[0];
- const nat={concrete:0xa8abae,wood:0x8a5f36,leaf:0x4c8a3c,stone:0x8d9196,metal:0xb0b4b8}[kind]||0x999999;
+ const nat=DEBNAT[kind]||0x999999;
  for(let i=0;i<n;i++){let idx=-1;
   for(let j=0;j<pool.n;j++)if(!pool.dinf[j].on){idx=j;break;}
   if(idx<0)idx=(Math.random()*pool.n)|0;
@@ -1634,18 +1634,25 @@ blob.rotation.x=-Math.PI/2;blob.position.y=.5;lean.add(blob);
    那池有 6.5~11s 寿命(寿命是 #104 轮修"拆得越多越没碎块"的手段,不能动),
    这里是独立 24 槽小池,入场即永久(本局内),入场频率低(每 20 件/大件必加),不会挤占临时池。 */
 const CARRYN=24;
+/* 残骸配色真相表(精修#209):吃的是什么,挂的就是什么色 —— 与临时碎片池的 nat 表同源,
+   提成模块常量后两池共用一份,不许各写一套 */
+const DEBNAT={concrete:0xa8abae,wood:0x8a5f36,leaf:0x4c8a3c,stone:0x8d9196,metal:0xb0b4b8};
 const carryMesh=new THREE.InstancedMesh(jaggedBox(6,5,6,.5),MAT.rock,CARRYN);
 carryMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 carryMesh.castShadow=true;
 tornado.add(carryMesh);
 const carryD=[];for(let i=0;i<CARRYN;i++)carryD.push({on:false,a:0,r:0,y:0,s:0,sz:1});
+for(let i=0;i<CARRYN;i++)carryMesh.setColorAt(i,_col.set(0xffffff));   /* 先写一遍白,把 instanceColor 缓冲建出来 */
 function parkCarry(){for(let i=0;i<CARRYN;i++){carryD[i].on=false;
  _m4.compose(_p3.set(0,-500,0),_q.setFromEuler(_e.set(0,0,0)),_s.set(0,0,0));
  carryMesh.setMatrixAt(i,_m4);}
  carryMesh.instanceMatrix.needsUpdate=true;}
 parkCarry();
-function spawnCarry(){const d=carryD.find(c=>!c.on);if(!d)return;   /* 满了就不再长:壮观点到为止 */
- d.on=true;d.a=rnd(0,6.28);d.r=T.r*rnd(1.35,2.1);d.y=rnd(6,64);d.s=rnd(.35,.9);d.sz=rnd(1.4,3.2)*(T.r/26);}
+function spawnCarry(k){const d=carryD.find(c=>!c.on);if(!d)return;   /* 满了就不再长:壮观点到为止 */
+ d.on=true;d.a=rnd(0,6.28);d.r=T.r*rnd(1.35,2.1);d.y=rnd(6,64);d.s=rnd(.35,.9);d.sz=rnd(1.4,3.2)*(T.r/26);
+ const idx=carryD.indexOf(d);
+ _col.set(DEBNAT[POOLMAP[k]||'concrete']||0x999999).multiplyScalar(rnd(.85,1.1));
+ carryMesh.setColorAt(idx,_col);carryMesh.instanceColor.needsUpdate=true;}
 /* 目标罗盘:指向电视塔 */
 const compass=new THREE.Group();
 const cArrow=new THREE.Mesh(new THREE.ConeGeometry(9,24,4),
@@ -2457,7 +2464,7 @@ function levelUp(){lvFlashT=2.2;$('lvname').textContent=lvLabel();
 const KINDNAMES={landmark:'黄金电视塔',car:'汽车',bus:'公交',truck:'卡车',house_s:'房子',house_b:'大宅',bld_m:'大楼',bld_l:'高楼',sky:'摩天楼',tree_s:'树木',tree_b:'大树',bush:'灌木',flower:'花',grass:'草',rock:'石块',boulder:'巨岩',bench:'长椅',lamp:'路灯',trash:'垃圾桶',bike:'单车',water:'水塔',ped:'行人',pedbike:'骑车人',pedcrouch:'市民',palm:'棕榈',umbrella:'遮阳伞',snowman:'雪人',skier:'滑雪者'};
 let kindStats={};
 function consume(o){score+=o.pts;eaten++;stats.eaten++;kindStats[o.k]=(kindStats[o.k]||0)+1;
- if(eaten%20===0||o.tier>=6)spawnCarry();   /* 残骸随行的进账:每 20 件挂一块,大件(tier≥6)必挂 */
+ if(eaten%20===0||o.tier>=6)spawnCarry(o.k);   /* 残骸随行的进账:每 20 件挂一块,大件(tier≥6)必挂,色随被吃物件 */
  comboN=comboT>0?comboN+1:1;comboT=COMBO_T;
  // 峰值要取在自增之后:取在之前 ×N 连击只会记成 N-1(横幅在 ×25 庆祝,「连击大师」却要 26 连才解锁)
  if(comboN>stats.maxCombo)stats.maxCombo=comboN;
