@@ -2565,7 +2565,7 @@ function consume(o){score+=o.pts;eaten++;stats.eaten++;kindStats[o.k]=(kindStats
  if(o.k==='landmark'&&mode==='endless'){o.state='idle';o.t=0;}}
 function endRush(){phase='win';pushHistory(runLabel(),score,120-rushT);
  const bgUrl2=snapshotCity();setWinBg(bgUrl2);lastRuinUrl=bgUrl2;
- const pre2=new Image();pre2.src=bgUrl2;
+ const pre2=new Image();pre2.src=bgUrl2;lastRuinImg=pre2;
  let rec,bestCell;   // 每日与限时分账(精修#206):每日只写自己日期位,不许污染限时纪录
  if(mode==='daily'){const di=dailyInfo()||{best:0};rec=score>di.best;
   if(rec)di.best=score;stats.daily={date:dateSeed(),best:di.best,played:1};saveStats();renderBests();bestCell=di.best;}
@@ -2608,9 +2608,12 @@ function genShareCard(bgUrl){
  const bg=g.createLinearGradient(0,0,0,840);
  bg.addColorStop(0,'#16211a');bg.addColorStop(1,'#0a0f0b');
  g.fillStyle=bg;g.fillRect(0,0,600,840);
- if(bgUrl){try{const im2=new Image();
-   im2.src=bgUrl;
-   // 同步绘制(若已解码)否则跳过——保证不阻塞
+ if(bgUrl){try{
+   /* 照片同步绘(#225 起):新 Image 的 dataURL 解码是异步的,刚结算完就生成会撞上 complete=false。
+      两个解码源按序兜底 —— 本次的 im2(早已解码的老玩家路径)→ 结算时预解码的 lastRuinImg。
+      都没就绪(极慢设备)仍跳过:无图版布局可用,好过卡住分享流程 */
+   let im2=new Image();im2.src=bgUrl;
+   if(!(im2.complete&&im2.naturalWidth)&&lastRuinImg&&lastRuinImg.complete&&lastRuinImg.naturalWidth)im2=lastRuinImg;
    if(im2.complete&&im2.naturalWidth){g.drawImage(im2,16,16,568,290);
     const shade=g.createLinearGradient(0,16,0,306);
     shade.addColorStop(0,'rgba(10,15,11,.25)');shade.addColorStop(1,'rgba(10,15,11,.85)');
@@ -2690,7 +2693,7 @@ function win(){phase='win';stats.wins++;if(isNight)stats.nightWins=(stats.nightW
   $('rec').style.display=rec?'block':'none';
   lastIsRecord=rec;
   setWinBg(bgUrl);lastRuinUrl=bgUrl;
-  const pre=new Image();pre.src=bgUrl; // 预解码,分享时同步可绘
+  const pre=new Image();pre.src=bgUrl;lastRuinImg=pre; // 预解码,分享时同步可绘
   drawFootmap();
   $('win').classList.remove('hidden');},1400);}
 function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats={};runCombo=0;
@@ -2799,7 +2802,8 @@ for(const c of FADERS())c.addEventListener('scroll',cardFade);
 addEventListener('resize',cardFade);
 $('foot').textContent='龙卷风大作战 3D · V'+VER;
 $('again').onclick=()=>startGame(lastStart.m,lastStart.night,lastStart.snow);
-let lastRuinUrl=null;
+let lastRuinUrl=null,lastRuinImg=null;   /* lastRuinImg(#225):预解码的那份 Image 本体 —— genShareCard 的照片
+ 是"已解码才同步绘",结算卡刚弹出就点「生成战报卡」的玩家会撞上解码未完成 ⇒ 照片整块静默跳过(221 轮测试当场复现过) */
 let lastIsRecord=false;
 $('share').onclick=()=>genShareCard(lastRuinUrl);
 $('shareClose').onclick=()=>$('shareLayer').classList.add('hidden');
