@@ -2554,6 +2554,15 @@ function frame(ts){requestAnimationFrame(frame);syncInert();
  for(const c of clouds){c.position.x+=c.userData.v*dt;if(c.position.x>3400)c.position.x=-200;}
  if(waterMat.map)waterMat.map.offset.x+=dt*.018,waterMat.map.offset.y+=dt*.008;
  for(const gu of gulls){gu.a+=gu.spd*dt;gu.flap+=dt*9;
+  /* 海鸥避风(#235):鸟群原本绕固定圆心 oblivious,风暴压到头顶也不逃。风柱 260 内:圆心背风漂移 +
+     受惊爬升(惊鸟往高处飞,封顶 基准+90);风停后高度缓回原位,圆心不回迁 —— 被惊走就是惊走了。
+     h0 惰性建档:第一次受惊才落基准,免得改 addGulls 的建群签名 */
+  if(phase==='play'){const gd=Math.hypot(gu.cx-T.x,gu.cz-T.z);
+   if(gd<260){const dx=gu.cx-T.x,dz=gu.cz-T.z,dd=gd||1;
+    if(!gu.h0)gu.h0=gu.h;
+    gu.cx=clamp(gu.cx+dx/dd*150*dt,100,3050);gu.cz=clamp(gu.cz+dz/dd*150*dt,100,3050);
+    gu.h=Math.min(gu.h0+90,gu.h+55*dt);}
+   else if(gu.h0)gu.h+=(gu.h0-gu.h)*Math.min(1,dt*.5);}
   gu.g.position.set(gu.cx+Math.cos(gu.a)*gu.rr,gu.h+Math.sin(gu.a*2.3)*6,gu.cz+Math.sin(gu.a)*gu.rr*.7);
   gu.g.rotation.y=-gu.a+(gu.spd>0?0:Math.PI);
   const w=Math.sin(gu.flap)*.55;
