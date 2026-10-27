@@ -1352,7 +1352,10 @@ function updateBolt(dt,stormK){boltNext-=dt*(1+stormLevel*1.2);
  if(boltLife>0){boltLife-=dt;bolt.material.opacity=Math.max(0,boltLife/.14)*.85*stormK;}}
 
 /* 竞争 AI 龙卷风(红色对手) */
-const RV={x:2400,z:600,r:20,score:0,lvl:1,spd:88,tgt:null,retarget:0};
+/* 对手名字池(#239):hole.io/agar.io 都给 bot 起名 —— 红点从"对手"变"涡小卷",药丸/被吞/抢食/
+   卷土重来全部带上名字,竞争关系从读数变成恩怨;每局 reset 重抽,重开就换个新冤家 */
+const RIVNAMES=['涡小卷','黑风怪','龙叔','旋旋','卷王','风暴阿飘','小旋风','吸尘器','追风少年','风居士'];
+const RV={x:2400,z:600,r:20,score:0,lvl:1,spd:88,tgt:null,retarget:0,name:RIVNAMES[0]};
 let rivalAhead=false;
 const rival=new THREE.Group();
 const rLean=new THREE.Group();rival.add(rLean);
@@ -1381,10 +1384,10 @@ function rivalUpdate(dt){if(phase==='menu')return;
     而我们的对手此前碰不得,支配感爽点缺失):吃掉的一方按对手积分拿大额奖励,对手 15 秒后异地零分重生。 */
  if(RV.dead>0){RV.dead-=dt;
   if(RV.dead<=0){RV.x=rnd(200,WORLD-200);RV.z=rnd(200,600);RV.tgt=null;RV.dead=0;rival.visible=true;
-   if(phase==='play')showHint('对手卷土重来了!',2000);}
+   if(phase==='play')showHint(RV.name+'卷土重来了!',2000);}
   else{ /* 倒计时期间药丸不能停在"被吞!"静态文案:威胁何时回来要有预期,与重生那声"卷土重来了!"首尾呼应;
           按秒写 textContent(帧级重写同值白费布局,分数栏 2399 同款节流) */
-   if(RV.pill){const t='🔴 对手 '+Math.ceil(RV.dead)+'s 后回归';
+   if(RV.pill){const t='🔴 '+RV.name+' '+Math.ceil(RV.dead)+'s 后回归';
     if(RV.pill.textContent!==t)RV.pill.textContent=t;}
    return;}}
  RV.lvl=Math.min(8,1+((RV.score/150)|0));
@@ -1400,7 +1403,7 @@ function rivalUpdate(dt){if(phase==='menu')return;
    最重的一刻却没有 —— 重量分级断层;补 .25 顶格(略超物件上限,对手比任何物件都重),reduceMotion 免同步同 1978 */
   burstCols('metal',[0xff5a4a,0xffd75e],10);blip(180,900,.35,.12,'sawtooth');crowdGasp(.14);   /* 吞人那一刻全城惊呼最响(#234) */
   RV.dead=15;RV.score=0;RV.lvl=1;RV.r=20;rival.visible=false;
-  if(RV.pill)RV.pill.textContent='🔴 对手 被吞!';
+  if(RV.pill)RV.pill.textContent='🔴 '+RV.name+' 被吞!';
   RV.biteCd=0;   /* 都被吞了,反咬冷却自然清零(重生体不记仇) */
   return;}
  /* 反咬(精修#211,205 的镜像):对手高 2 级近身咬一口 —— 卷走玩家 25% 分数据为己有。
@@ -1443,7 +1446,7 @@ function rivalUpdate(dt){if(phase==='menu')return;
    if(o.k.indexOf('ped')!==0&&!o.axis)destroyedIds.push(o.id);
    RV.score+=o.pts;
    if(Math.hypot(o.x-T.x,o.z-T.z)<T.r*2.2+o.r&&hintT<=0){
-    showHint('对手抢走了你的猎物!',2000);hintT=2;}}}
+    showHint(RV.name+'抢走了你的猎物!',2000);hintT=2;}}}
  // 外观
  rival.visible=true;
  rival.position.set(RV.x,0,RV.z);
@@ -1467,7 +1470,7 @@ function rivalUpdate(dt){if(phase==='menu')return;
  if(!ahead&&rivalAhead&&phase==='play'){stats.comebacks=(stats.comebacks||0)+1;saveStats();checkAchv();}
  rivalAhead=ahead;
  // 对手分数迷你条
- if(RV.pill)RV.pill.textContent='🔴 对手 '+RV.score;}
+ if(RV.pill)RV.pill.textContent='🔴 '+RV.name+' '+RV.score;}
 
 /* ---------- 音效 ---------- */
 let AC=null,whGain=null,whFilt=null,rnGain=null,sirenOsc=null,sirenGain=null,sirenOn=false,BUS=null,
@@ -2182,6 +2185,7 @@ function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats=
  for(const w of wrecks){scene.remove(w.m);if(!w.shared&&w.m.geometry)w.m.geometry.dispose();}
  wrecks.length=0;destroyedIds=[];scarList=[];stumpList=[];saveCool=0;retired=0; // 新局:冷却与退役位都要重来
  RV.score=0;RV.lvl=1;RV.r=20;RV.x=2400;RV.z=600;RV.tgt=null;RV.retarget=0;RV.dead=0;rival.visible=false;
+ RV.name=RIVNAMES[(Math.random()*RIVNAMES.length)|0];   /* 每局换新冤家(#239) */
  parkCarry();   /* 残骸随行是"这一程"的战利品:重开归零,下一程从一缕干净的风开始 */
  for(const pool of POOLS){
   for(let i=0;i<pool.dinf.length;i++)pool.dinf[i].on=false;
