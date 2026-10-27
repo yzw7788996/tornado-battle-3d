@@ -1951,6 +1951,10 @@ function burstCols(kind,cs,n){spawnDebris(kind,cs,n);}
 function lvLabel(){return 'LV.'+level+' · '+LVN[level-1];}
 function levelUp(){lvFlashT=2.2;$('lvname').textContent=lvLabel();
  for(const o of objects)o.locked=0;lockHintT=1.2;showUnlock(); // 升级后允许重新解释一次
+ /* 全城窗灯齐闪(#227):城市对"你变强了"的反应,升级这一刻不止 HUD 在响。
+    借主循环 2466 既有的 emissiveIntensity 向 base 回落回路,这里只抬一次,不新增任何循环;
+    玻璃塔无 emissiveMap(抬了也不亮)天然免同步,夜景下这道闪最读得出 */
+ for(const bm of BLD)bm.emissiveIntensity=Math.min(2.2,(bm.emissiveIntensity||0)+1.4);
  banner('升级!LV.'+level+' '+LVN[level-1]);chime();vib(60);burstCols('concrete',null,12);statline();saveRun();}
 const KINDNAMES={landmark:'黄金电视塔',car:'汽车',bus:'公交',truck:'卡车',house_s:'房子',house_b:'大宅',bld_m:'大楼',bld_l:'高楼',sky:'摩天楼',tree_s:'树木',tree_b:'大树',bush:'灌木',flower:'花',grass:'草',rock:'石块',boulder:'巨岩',bench:'长椅',lamp:'路灯',trash:'垃圾桶',bike:'单车',water:'水塔',ped:'行人',pedbike:'骑车人',pedcrouch:'市民',palm:'棕榈',umbrella:'遮阳伞',snowman:'雪人',skier:'滑雪者'};
 let kindStats={};
