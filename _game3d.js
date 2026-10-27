@@ -2011,6 +2011,7 @@ function consume(o){score+=o.pts;eaten++;stats.eaten++;kindStats[o.k]=(kindStats
  if(o.k==='landmark'&&mode==='campaign')win();
  if(o.k==='landmark'&&mode==='endless'){o.state='idle';o.t=0;}}
 function endRush(){phase='win';pushHistory(runLabel(),score,120-rushT);
+ const dc=$('dailyCopy');if(dc)dc.style.display=mode==='daily'?'block':'none';   /* 每日专属(#233):战役/限时结算不亮 */
  const bgUrl2=snapshotCity();setWinBg(bgUrl2);lastRuinUrl=bgUrl2;
  const pre2=new Image();pre2.src=bgUrl2;lastRuinImg=pre2;
  let rec,bestCell;   // 每日与限时分账(精修#206):每日只写自己日期位,不许污染限时纪录
@@ -2179,8 +2180,13 @@ function dateSeed(){const d=new Date();return d.getFullYear()*10000+(d.getMonth(
 function yesterdaySeed(){const d=new Date(Date.now()-864e5);return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();}   /* 跨月/跨年由 Date 运算兜底,不做日历减法 */
 function dailyInfo(){return stats.daily&&stats.daily.date===dateSeed()?stats.daily:null;}
 let dailyBroke=0;   /* 断签安慰(214)的桥:打卡段算出的损失天数,带到函数尾部的开局提示去说 */
-function streakNow(){   /* 展示用的连续天数:昨天或今天打过才算连着,隔天即断(不靠 next-start 兜底,读数永远诚实) */
- const st=stats.streak;return st&&(st.last===dateSeed()||st.last===yesterdaySeed())?st.n:0;}
+function streakNow(){   /* 展示用的连续天数:昨天或今天打过才算连着,隔天即断(不靠 next-start 兜底,读数永远诚实) */ const st=stats.streak;return st&&(st.last===dateSeed()||st.last===yesterdaySeed())?st.n:0;}
+/* 每日战绩文案(#233):可复制的文字比分享图摩擦低,是每日挑战病毒环(206/208/214/223)的最后一环。
+   风暴条 8 格对齐 8 级,一眼读出"今天养到多大";streakNow 诚实读数,没连过就不写那句 */
+function buildDailyText(){const sk=streakNow();
+ return '🌪️ 龙卷风每日挑战 '+dateSeed()+'\n'+score+' 分 · LV.'+level+'\n'
+  +'🌪️'.repeat(level)+'▫️'.repeat(Math.max(0,8-level))
+  +(sk>1?'\n已连 '+sk+' 天':'')+'\n—— 你也来卷一把?';}
 function startGame(m,night,snow){clearRun();mode=m||'campaign';isNight=!!night;isSnow=!!snow;
  if(mode==='daily'){const di=dailyInfo();
   if(di&&di.played){showHint('📅 今天的挑战已完成(最佳 '+di.best+' 分),明天刷新!',3200);return;}
@@ -2257,6 +2263,14 @@ let lastRuinUrl=null,lastRuinImg=null;   /* lastRuinImg(#225):预解码的那份
  是"已解码才同步绘",结算卡刚弹出就点「生成战报卡」的玩家会撞上解码未完成 ⇒ 照片整块静默跳过(221 轮测试当场复现过) */
 let lastIsRecord=false;
 $('share').onclick=()=>genShareCard(lastRuinUrl);
+{const dc=$('dailyCopy');if(dc)dc.onclick=()=>{   /* 剪贴板三级降级:API→execCommand→明说长按分享图,不静默失败 */
+ try{navigator.clipboard.writeText(buildDailyText()).then(
+   ()=>showHint('📋 战绩已复制,发给朋友吧!',2200),
+   ()=>showHint('复制失败,长按战报图分享',2200));}
+ catch(e){try{const ta=document.createElement('textarea');ta.value=buildDailyText();
+   document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();
+   showHint('📋 战绩已复制,发给朋友吧!',2200);}
+  catch(e2){showHint('复制失败,长按战报图分享',2200);}}};}
 $('shareClose').onclick=()=>$('shareLayer').classList.add('hidden');
 $('free').onclick=()=>{$('win').classList.add('hidden');phase='play';startT=performance.now()/1000-elapsed;
  // 闲逛段要看得出现在是闲逛:计时的盒子回来报"已结束",而不是凭空消失
