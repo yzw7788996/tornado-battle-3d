@@ -1958,6 +1958,8 @@ function rivalUpdate(dt){if(phase==='menu')return;
   if(stats.bitten)stats.revenge=1;   /* 复仇者(精修#213):先被咬(211)再吞回(205)才算 —— 单纯欺负小对手不算复仇 */
   saveStats();checkAchv();
   banner('吞噬对手!+'+gain);vibTier(8);shake=Math.min(1,shake+.5);fovKick=8;
+  if(!reduceMotion)hitstop=.25;   /* 顿帧(#229):吃大件已有 .03~.22 按相对大小分级的顿帧,吞对手是全场
+   最重的一刻却没有 —— 重量分级断层;补 .25 顶格(略超物件上限,对手比任何物件都重),reduceMotion 免同步同 1978 */
   burstCols('metal',[0xff5a4a,0xffd75e],10);blip(180,900,.35,.12,'sawtooth');
   RV.dead=15;RV.score=0;RV.lvl=1;RV.r=20;rival.visible=false;
   if(RV.pill)RV.pill.textContent='🔴 对手 被吞!';
