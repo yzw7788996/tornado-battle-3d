@@ -2038,10 +2038,14 @@ function genShareCard(bgUrl){
     /* 足迹小地图内嵌角标(#221):战报发出去之后"毁了多大一片"不能只靠文字 —— 内嵌在照片右下角
        (游戏截图惯用角标位),底衬压暗保可读、金框与卡框同源;照片没解码成功就不嵌(y0=110 的无图版
        布局里这个角是标题区,嵌上去会压字) */
-    try{g.save();g.translate(398,134);const S2=166,sc=S2/264;
+    /* 角标自适应(#228):破坏量大的局,足迹值得更大的角 —— 焦痕 ≥60 处从 166 放到 208,仍锚照片右下
+       (x2=564-S2/y2=300-S2 与 #221 的 166 版坐标逐像素同源);不搞连续缩放,玩家读得出的是
+       "打得狠的局地图更大",读不出的是 0.6px/痕的渐变 */
+    try{const S2=scarList.length>=60?208:166,x2=564-S2,y2=300-S2,sc=S2/264;
+     g.save();g.translate(x2,y2);
      g.fillStyle='rgba(5,9,7,.72)';g.fillRect(-4,-4,S2+8,S2+8);
      g.scale(sc,sc);paintFoot(g);g.restore();
-     g.strokeStyle='rgba(255,215,94,.5)';g.lineWidth=2;g.strokeRect(394,130,174,174);}catch(e){}}}catch(e){}}
+     g.strokeStyle='rgba(255,215,94,.5)';g.lineWidth=2;g.strokeRect(x2-4,y2-4,S2+8,S2+8);}catch(e){}}}catch(e){}}
  g.strokeStyle='rgba(255,215,94,.4)';g.lineWidth=3;g.strokeRect(14,14,572,812);
  if(lastIsRecord){ // 新纪录绶带
   g.save();g.translate(472,86);g.rotate(Math.PI/10);
