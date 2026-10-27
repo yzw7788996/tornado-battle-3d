@@ -2671,6 +2671,7 @@ function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats=
 function dateSeed(){const d=new Date();return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();}
 function yesterdaySeed(){const d=new Date(Date.now()-864e5);return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();}   /* 跨月/跨年由 Date 运算兜底,不做日历减法 */
 function dailyInfo(){return stats.daily&&stats.daily.date===dateSeed()?stats.daily:null;}
+let dailyBroke=0;   /* 断签安慰(214)的桥:打卡段算出的损失天数,带到函数尾部的开局提示去说 */
 function streakNow(){   /* 展示用的连续天数:昨天或今天打过才算连着,隔天即断(不靠 next-start 兜底,读数永远诚实) */
  const st=stats.streak;return st&&(st.last===dateSeed()||st.last===yesterdaySeed())?st.n:0;}
 function startGame(m,night,snow){clearRun();mode=m||'campaign';isNight=!!night;isSnow=!!snow;
@@ -2679,6 +2680,9 @@ function startGame(m,night,snow){clearRun();mode=m||'campaign';isNight=!!night;i
   stats.daily={date:dateSeed(),best:0,played:1};
   /* 打卡连击(精修#208):今天首次开每日才算一天;昨天打过 → 连击+1,否则从 1 重新数 */
   const st=stats.streak||{last:0,n:0};
+  /* 断签安慰(精修#214):昨天之前有过 ≥2 连,今天回来第一句先认这个损失 ——
+     静默重数成 1 会让 streakNow 的连字消失得莫名其妙,一句话把账算明白 */
+  dailyBroke=(st.last&&st.last<yesterdaySeed()&&st.n>1)?st.n:0;
   st.n=st.last===yesterdaySeed()?st.n+1:1;st.last=dateSeed();
   stats.streak=st;stats.streakBest=Math.max(stats.streakBest||0,st.n);
   saveStats();checkAchv();renderBests();}
@@ -2694,7 +2698,7 @@ reset(mode==='daily'?dateSeed():undefined);applySnow();phase='play';saveStats();
  lockHintT=(mode==='campaign')?8:3; // 开局先让玩家吃明白,不急着解释吃不动的
  startTutorial();
  if(!tutActive())showHint(mode==='rush'?'⏱ 2 分钟,卷出最高分!'
-   :mode==='daily'?'📅 今日之城,2 分钟一次机会!'
+   :mode==='daily'?(dailyBroke?'💔 连击断了('+dailyBroke+' 天),今天从 1 重新数!':'📅 今日之城,2 分钟一次机会!')
    :mode==='endless'?'♾️ 物件会不断重生,尽管拼高分!':'先去吃花花草草,把自己吃大!',2600);}
 /* ---------- 模式选择:六个模式各有目标,选完在"开始"上说明白 ---------- */
 const MODES={
