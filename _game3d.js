@@ -1356,7 +1356,21 @@ function rivalUpdate(dt){if(phase==='menu')return;
   burstCols('metal',[0xff5a4a,0xffd75e],10);blip(180,900,.35,.12,'sawtooth');
   RV.dead=15;RV.score=0;RV.lvl=1;RV.r=20;rival.visible=false;
   if(RV.pill)RV.pill.textContent='🔴 对手 被吞!';
+  RV.biteCd=0;   /* 都被吞了,反咬冷却自然清零(重生体不记仇) */
   return;}
+ /* 反咬(精修#211,205 的镜像):对手高 2 级近身咬一口 —— 卷走玩家 25% 分数据为己有。
+    不做死亡屏(休闲底线):代价是分数转移+击退,而吃回对手(205)能连本带利讨回 ⇒ 大吃小/小被欺的双向支配环闭合。
+    6 秒冷却防贴脸连咬清零;得手后对手短暂游走,给玩家喘息。 */
+ RV.biteCd=(RV.biteCd||0)-dt;
+ if(RV.lvl>=level+2&&RV.biteCd<=0&&Math.hypot(RV.x-T.x,RV.z-T.z)<RV.r*2+T.r){
+  if(score>0){const real=Math.min(score,Math.max(1,Math.round(score*.25)));   /* 有分才咬得出转移;0 分只吃击退 */
+   score-=real;RV.score+=real;stats.bitten=(stats.bitten||0)+1;saveStats();
+   banner('被对手卷走 '+real+' 分!');vibTier(7);shake=Math.min(1,shake+.6);fovKick=6;
+   blip(600,120,.4,.12,'sawtooth');}
+  else banner('被对手撞飞了!');
+  const dx=T.x-RV.x,dz=T.z-RV.z,dd=Math.hypot(dx,dz)||1;   /* 击退:往远离对手的方向弹一程 */
+  T.tx=clamp(T.x+dx/dd*260,40,WORLD-40);T.tz=clamp(T.z+dz/dd*260,40,WORLD-40);
+  RV.tgt=null;RV.retarget=4;RV.biteCd=6;hintT=3;return;}
  // 找最近的可吃目标(避开玩家嘴边)
  let best=null,bd=1e9;
  const steal=Math.random()<.3; // 30% 概率故意抢玩家身边的目标
@@ -2365,7 +2379,7 @@ function update(dt){elapsed=performance.now()/1000-startT;const p=Math.min(1,sco
   se.classList.remove('bump');void se.offsetWidth;se.classList.add('bump');}
  $('cnt').textContent=eaten;
  showClock(); // 本局用时:无尽/雪原没有终点,限时靠倒计时,只有这格能让玩家知道"我已经玩了多久"(probe62:改前游玩中零处报时)
- $('fill').style.width=(level<8?(score-TH[level-1])/(TH[level]-TH[level-1])*100:100)+'%';
+ $('fill').style.width=Math.max(0,(level<8?(score-TH[level-1])/(TH[level]-TH[level-1])*100:100))+'%';   /* 反咬(211)会让分数回落在当前段以下,负宽度在 CSS 里是非法值被整条忽略 —— 夹住 */
  if(wasScore!=String(score))showUnlock();}   // "还差 N 分"跟着分数走,不能只在升级那刻写一次
 
 /* ---------- 相机 ---------- */
