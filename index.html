@@ -2979,16 +2979,20 @@ function update(dt){elapsed=performance.now()/1000-startT;const p=Math.min(1,sco
   if(o.state!=='idle')continue;
   if(o.axis){const dd=Math.hypot(o.x-T.x,o.z-T.z);
    if(dd>range*1.7){
-    if(o.axis==='x'){o.x+=o.dir*o.spd*dt;
+    /* 车流随风暴提速(#232):满级 ×1.9 —— 车不会逃(依然堵在风暴边缘),但全城告急时开得更急,
+       与天色变暗/闪电加密(stormLevel 同源)合成"城市知道出事了"的群体反应 */
+    if(o.axis==='x'){o.x+=o.dir*o.spd*(1+stormLevel*.9)*dt;
      if(o.x>3150)o.x=50;else if(o.x<50)o.x=3150;}
-    else{o.z+=o.dir*o.spd*dt;
+    else{o.z+=o.dir*o.spd*(1+stormLevel*.9)*dt;
      if(o.z>3150)o.z=50;else if(o.z<50)o.z=3150;}
     o.node.position.x=o.x;o.node.position.z=o.z;}}
   else if(o.k==='ped'||o.k==='pedbike'||o.k==='pedcrouch'||o.k==='skier'){
    const dd=Math.hypot(o.x-T.x,o.z-T.z);
    const isBike=o.k==='pedbike'||o.k==='skier',isCrouch=o.k==='pedcrouch';
-   let sp=o.spd;
-   if(dd<105&&!isCrouch){o.wa=Math.atan2(o.z-T.z,o.x-T.x);sp=o.spd*(isBike?2.6:2.8);}
+   /* 全城逃难(#232):远处悠闲散步的市民也随风暴等级提速(满级 ×2.1),近身逃窜(×2.8/×2.6)再叠乘 ——
+      此前只有 105 单位内的市民会慌,风暴再大远处依旧岁月静好,群体恐慌读不出来 */
+   let sp=o.spd*(1+stormLevel*1.1);
+   if(dd<105&&!isCrouch){o.wa=Math.atan2(o.z-T.z,o.x-T.x);sp*=(isBike?2.6:2.8);}
    if(!isCrouch){
     o.x+=Math.cos(o.wa)*sp*dt;o.z+=Math.sin(o.wa)*sp*dt;
     if(o.x<40||o.x>3160){o.wa=Math.PI-o.wa;o.x=clamp(o.x,40,3160);}
