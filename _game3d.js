@@ -1044,6 +1044,23 @@ function spawnDebris(kind,cs,n){const pool=POOLS.find(p=>p.k===kind)||POOLS[0];
 const blob=new THREE.Mesh(new THREE.CircleGeometry(66,26),
  new THREE.MeshBasicMaterial({color:0x1e2418,transparent:true,opacity:.22,depthWrite:false}));
 blob.rotation.x=-Math.PI/2;blob.position.y=.5;lean.add(blob);
+/* 残骸随行(精修#207,katamariio"吞噬物粘附"的等价物):吃掉的物件留下一块永久绕柱碎块,
+   跟着龙卷风走 —— 越吃,身上挂的残骸越多,重开归零。与上面的临时碎片池分家:
+   那池有 6.5~11s 寿命(寿命是 #104 轮修"拆得越多越没碎块"的手段,不能动),
+   这里是独立 24 槽小池,入场即永久(本局内),入场频率低(每 20 件/大件必加),不会挤占临时池。 */
+const CARRYN=24;
+const carryMesh=new THREE.InstancedMesh(jaggedBox(6,5,6,.5),MAT.rock,CARRYN);
+carryMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+carryMesh.castShadow=true;
+tornado.add(carryMesh);
+const carryD=[];for(let i=0;i<CARRYN;i++)carryD.push({on:false,a:0,r:0,y:0,s:0,sz:1});
+function parkCarry(){for(let i=0;i<CARRYN;i++){carryD[i].on=false;
+ _m4.compose(_p3.set(0,-500,0),_q.setFromEuler(_e.set(0,0,0)),_s.set(0,0,0));
+ carryMesh.setMatrixAt(i,_m4);}
+ carryMesh.instanceMatrix.needsUpdate=true;}
+parkCarry();
+function spawnCarry(){const d=carryD.find(c=>!c.on);if(!d)return;   /* 满了就不再长:壮观点到为止 */
+ d.on=true;d.a=rnd(0,6.28);d.r=T.r*rnd(1.35,2.1);d.y=rnd(6,64);d.s=rnd(.35,.9);d.sz=rnd(1.4,3.2)*(T.r/26);}
 /* 目标罗盘:指向电视塔 */
 const compass=new THREE.Group();
 const cArrow=new THREE.Mesh(new THREE.ConeGeometry(9,24,4),
@@ -1092,6 +1109,12 @@ function updateTornadoVisual(dt){
    _m4.compose(_p3.set(Math.cos(d.a)*(d.r+wob),d.y,Math.sin(d.a)*(d.r+wob)),_q,_s.set(d.sx,d.sy,d.sz));
    pool.mesh.setMatrixAt(i,_m4);}
   pool.mesh.instanceMatrix.needsUpdate=true;}
+ /* 残骸随行:永久碎块绕着风柱慢转,半径按当前 T.r 归一(吃大后随行圈跟着外扩),上下轻浮动 */
+ for(let i=0;i<CARRYN;i++){const c=carryD[i];if(!c.on)continue;
+  c.a+=c.s*dt;
+  _e.set(time*.8+i,time*.5+i*1.7,0);_q.setFromEuler(_e);
+  _m4.compose(_p3.set(Math.cos(c.a)*c.r,c.y+Math.sin(time*1.3+i)*3,Math.sin(c.a)*c.r),_q,_s.set(c.sz,c.sz,c.sz));}
+ carryMesh.instanceMatrix.needsUpdate=true;
  lean.rotation.z+=(clamp(-vx*.0011,-.1,.1)-lean.rotation.z)*Math.min(1,dt*4);
  lean.rotation.x+=(clamp(vz*.0011,-.1,.1)-lean.rotation.x)*Math.min(1,dt*4);
  if(landmarkRef&&landmarkRef.state==='idle'&&phase!=='menu'){
@@ -1845,6 +1868,7 @@ function levelUp(){lvFlashT=2.2;$('lvname').textContent=lvLabel();
 const KINDNAMES={landmark:'黄金电视塔',car:'汽车',bus:'公交',truck:'卡车',house_s:'房子',house_b:'大宅',bld_m:'大楼',bld_l:'高楼',sky:'摩天楼',tree_s:'树木',tree_b:'大树',bush:'灌木',flower:'花',grass:'草',rock:'石块',boulder:'巨岩',bench:'长椅',lamp:'路灯',trash:'垃圾桶',bike:'单车',water:'水塔',ped:'行人',pedbike:'骑车人',pedcrouch:'市民',palm:'棕榈',umbrella:'遮阳伞',snowman:'雪人',skier:'滑雪者'};
 let kindStats={};
 function consume(o){score+=o.pts;eaten++;stats.eaten++;kindStats[o.k]=(kindStats[o.k]||0)+1;
+ if(eaten%20===0||o.tier>=6)spawnCarry();   /* 残骸随行的进账:每 20 件挂一块,大件(tier≥6)必挂 */
  comboN=comboT>0?comboN+1:1;comboT=COMBO_T;
  // 峰值要取在自增之后:取在之前 ×N 连击只会记成 N-1(横幅在 ×25 庆祝,「连击大师」却要 26 连才解锁)
  if(comboN>stats.maxCombo)stats.maxCombo=comboN;
@@ -1995,6 +2019,7 @@ function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats=
  for(const w of wrecks){scene.remove(w.m);if(!w.shared&&w.m.geometry)w.m.geometry.dispose();}
  wrecks.length=0;destroyedIds=[];scarList=[];stumpList=[];saveCool=0;retired=0; // 新局:冷却与退役位都要重来
  RV.score=0;RV.lvl=1;RV.r=20;RV.x=2400;RV.z=600;RV.tgt=null;RV.retarget=0;RV.dead=0;rival.visible=false;
+ parkCarry();   /* 残骸随行是"这一程"的战利品:重开归零,下一程从一缕干净的风开始 */
  for(const pool of POOLS){
   for(let i=0;i<pool.dinf.length;i++)pool.dinf[i].on=false;
   for(let i=0;i<pool.dinf.length;i++){_e.set(0,0,0);_q.setFromEuler(_e);_s.set(0,0,0);
