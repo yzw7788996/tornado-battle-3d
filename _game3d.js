@@ -1671,7 +1671,9 @@ function showCombo(){const el=$('combo');
  comboShown=comboN;
  // 认真吃的时候这条几乎不会断(实测 238 次吃件里 235 次亮着、峰值 ×222),三位数的"连击 ×222"
  // 挨着一堆分数看就像收益。超过 99 就封顶显示,真数值落在结算卡的「本局最高连击」里
- $('combon').textContent=comboN>99?'99+':comboN;
+ const cn=$('combon');cn.textContent=comboN>99?'99+':comboN;
+ /* 每跳一格弹一下(#238):纯文本替换读不出"正在连"的节奏;分数栏同款 remove→reflow→add 重启动画 */
+ cn.classList.remove('bump');void cn.offsetWidth;cn.classList.add('bump');
  if(comboN===5||comboN===10||comboN===25||comboN===50){
   banner('连击 ×'+comboN+'!');blip(760+comboN*6,1240,.2,.11,'triangle');vib(30);}}
 

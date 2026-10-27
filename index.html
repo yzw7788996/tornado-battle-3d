@@ -124,7 +124,7 @@
      命中区不能依赖"等人静止了再合规"。贝塞尔的过冲仍在位移上,弹手感不丢。 */
   @keyframes cardin{from{transform:translateY(26px);opacity:0}
     to{transform:translateY(0);opacity:1}}
-  #score.bump{animation:bump .3s ease}
+  #score.bump,#combon.bump{animation:bump .3s ease}   /* 连击数每次 +1 弹一下(#238):分数栏同款范式 */
   @keyframes bump{30%{transform:scale(1.28);color:#ffe9a8}}
   .card{position:relative;width:min(90vw,382px);max-height:92vh;overflow:auto;border-radius:30px;
     padding:30px 24px 24px;text-align:center;color:#f2f5f0;
@@ -2264,7 +2264,9 @@ function showCombo(){const el=$('combo');
  comboShown=comboN;
  // 认真吃的时候这条几乎不会断(实测 238 次吃件里 235 次亮着、峰值 ×222),三位数的"连击 ×222"
  // 挨着一堆分数看就像收益。超过 99 就封顶显示,真数值落在结算卡的「本局最高连击」里
- $('combon').textContent=comboN>99?'99+':comboN;
+ const cn=$('combon');cn.textContent=comboN>99?'99+':comboN;
+ /* 每跳一格弹一下(#238):纯文本替换读不出"正在连"的节奏;分数栏同款 remove→reflow→add 重启动画 */
+ cn.classList.remove('bump');void cn.offsetWidth;cn.classList.add('bump');
  if(comboN===5||comboN===10||comboN===25||comboN===50){
   banner('连击 ×'+comboN+'!');blip(760+comboN*6,1240,.2,.11,'triangle');vib(30);}}
 

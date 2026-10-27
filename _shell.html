@@ -124,7 +124,7 @@
      命中区不能依赖"等人静止了再合规"。贝塞尔的过冲仍在位移上,弹手感不丢。 */
   @keyframes cardin{from{transform:translateY(26px);opacity:0}
     to{transform:translateY(0);opacity:1}}
-  #score.bump{animation:bump .3s ease}
+  #score.bump,#combon.bump{animation:bump .3s ease}   /* 连击数每次 +1 弹一下(#238):分数栏同款范式 */
   @keyframes bump{30%{transform:scale(1.28);color:#ffe9a8}}
   .card{position:relative;width:min(90vw,382px);max-height:92vh;overflow:auto;border-radius:30px;
     padding:30px 24px 24px;text-align:center;color:#f2f5f0;
