@@ -1137,7 +1137,18 @@ function updateTornadoVisual(dt){
   compass.visible=d>750;
   if(compass.visible){compass.position.set(T.x,T.r*2.6+170,T.z);
    compass.rotation.y=Math.atan2(dx,dz);
-   compass.scale.setScalar(Math.max(1,T.r/26)*1.1);}}
+   compass.scale.setScalar(Math.max(1,T.r/26)*1.1);}
+  /* 塔顶信标(#230):够到 8 级(塔自己的 tier)且模式可卷的那一刻起,信标从静态红转金色呼吸 ——
+     "现在能赢了"从一行文字变成城里远远看得见的光;罗盘说"在那边",信标说"到点了"。
+     beacon 自建塔起就在(此前是静态死资产),只改颜色/强度,不加灯不加面,零着色器重编译(227 的 emissive 同款) */
+  const bc=landmarkRef.node.userData.beacon;
+  if(bc){const el=level>=8&&towerEdible();   /* 判定与 1248 的锁检查同源 */
+   if(el){bc.material.color.setHex(0xffd75e);bc.material.emissive.setHex(0xffd75e);
+    bc.material.emissiveIntensity=1.4+Math.sin(time*3.2)*1.1;
+    bc.scale.setScalar(1+.45*(Math.sin(time*3.2)*.5+.5));}   /* 尺度呼吸:2px 上的亮度闪在游戏距离读不出,
+     大小闪烁(1↔1.45×,面积近 3 倍)才是远处看得见的"塔在呼吸"——#230 近景取证塔身像素淹没信标后补的 */
+   else{bc.material.color.setHex(0xff2222);bc.material.emissive.setHex(0xff1111);
+    bc.material.emissiveIntensity=2;bc.scale.setScalar(1);}}}
  else compass.visible=false;}
 
 /* ---------- 闪电 ---------- */
