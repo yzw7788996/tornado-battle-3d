@@ -1870,7 +1870,13 @@ function renderBests(){
  $('best').textContent='🏆 单局最佳 '+best;
  $('bestRush').textContent='⏱ 挑战最佳 '+rushBest;
  const di=dailyInfo(),sk=streakNow();
- const bd=$('bestDaily');if(bd)bd.textContent='📅 今日 '+(di?di.best+' 分':'未玩')+(sk>1?' · 连'+sk+'天':'');}   /* 精修#208:每日状态常驻菜单,回访先看这格 */
+ /* 距刷新(#223):"什么时候能玩明天的局"此前只有开局拦截里一句静态的"明天刷新"——
+    把答案常驻到菜单徽章上,回访钩子才算闭环。倒计时按本地次日零点算(dateSeed 同源),
+    菜单是短暂停留的界面,渲染时算一次即可,不必挂秒级定时器 */
+ const now=new Date(),mid=new Date(now);mid.setHours(24,0,0,0);
+ const mins=Math.max(1,Math.round((mid-now)/6e4));
+ const cd=(mins>=60?Math.floor(mins/60)+' 小时':mins+' 分钟')+'后刷新';
+ const bd=$('bestDaily');if(bd)bd.textContent='📅 今日 '+(di?di.best+' 分':'未玩')+(sk>1?' · 连'+sk+'天':'')+' · '+cd;}   /* 精修#208:每日状态常驻菜单,回访先看这格 */
 function saveBest(){try{localStorage.setItem('tornadoBest',best)}catch(e){}renderBests();}
 /* ---------- 存档续玩 ---------- */
 const SKEY='tornadoRun';
