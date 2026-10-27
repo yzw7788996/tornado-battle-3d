@@ -2322,8 +2322,11 @@ const ACHV=[
 if(!stats.achv)stats.achv={};
 function renderAchv(){const el=$('achv');
  const got=ACHV.filter(a=>stats.achv[a.id]).length;
+ /* 解锁分组(精修#215):16 枚一排到底,找"拿到手的"要逐个扫 —— 已解锁排前、未解锁排后,
+    组内保持声明序(稳定排序);解锁瞬间的 checkAchv 重渲染,新徽章一定在最前排 */
+ const ord=[...ACHV].sort((a,b)=>((stats.achv[b.id]?1:0)-(stats.achv[a.id]?1:0)));
  el.innerHTML=`<div style="width:100%;font-size:11px;opacity:.6;letter-spacing:2px;margin-bottom:2px">🏅 成就 ${got}/${ACHV.length}</div>`
-  +ACHV.map(a=>{const on=stats.achv[a.id],p=a.prog(stats);
+  +ord.map(a=>{const on=stats.achv[a.id],p=a.prog(stats);
   // 牌面写"已 X/门槛":只有门槛的话,玩家分不清自己差 1 件还是差 40 件;分子与 test 同取 a.field
   return `<span class="ach${on?' on':''}" title="${a.name} · 已 ${p}/${a.need}${a.unit}">${a.icon} ${a.name}<em>${p}/${a.need}${a.unit}</em></span>`;}).join('');
  if($('moreBtn'))$('moreBtn').textContent=moreSummary();}
