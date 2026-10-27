@@ -477,6 +477,7 @@ var SPIN0=(function(){var e=el('bootSpin');return e?e.textContent:''})();
     <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
       <div class="badge" id="best">🏆 闯关最佳 0</div>
       <div class="badge" id="bestRush">⏱ 挑战最佳 0</div>
+      <div class="badge" id="bestDaily">📅 今日 未玩</div>
     </div>
     <button class="linkbtn" id="moreBtn">▸ 战绩与成就</button>
     <div id="more">
@@ -2268,6 +2269,8 @@ const ACHV=[
  {id:'cb1', icon:'🔴', name:'宿敌克星', field:'comebacks', need:1, unit:'次反超'},
  {id:'r5', icon:'⏱', name:'挑战者', field:'rushPlays', need:5, unit:'局限时'},
  {id:'rv1', icon:'🌀', name:'吞天者', field:'rivalEats', need:1, unit:'次吞噬'},   // 精修#205:吞掉对手的战绩徽章(成就二波同管线)
+ {id:'st3', icon:'📅', name:'三日之约', field:'streakBest', need:3, unit:'天连续'},   // 精修#208:每日打卡连击,门槛对齐周末回归节奏
+ {id:'st7', icon:'🗓️', name:'七日风暴', field:'streakBest', need:7, unit:'天连续'},
  /* 第二波(DEVLOG 15/39 轮挂账的"成就第二波"):只补高级档与新维度,不重复旧门槛;
     nightWins/rushBest 是新统计位,分别由 win()(夜城那一局)与 endRush()(限时结算)落账 */
  {id:'w10', icon:'👑', name:'风暴领主', field:'wins', need:10, unit:'次通关'},
@@ -2380,7 +2383,9 @@ function showClock(){const el=$('clockv');if(!el)return;const t=fmt(elapsed);if(
    名字也从"闯关"改成"单局":consume() 在闯关/夜城/无尽/雪原/限时(结算前)五种局里都会抬高这个数。 */
 function renderBests(){
  $('best').textContent='🏆 单局最佳 '+best;
- $('bestRush').textContent='⏱ 挑战最佳 '+rushBest;}
+ $('bestRush').textContent='⏱ 挑战最佳 '+rushBest;
+ const di=dailyInfo(),sk=streakNow();
+ const bd=$('bestDaily');if(bd)bd.textContent='📅 今日 '+(di?di.best+' 分':'未玩')+(sk>1?' · 连'+sk+'天':'');}   /* 精修#208:每日状态常驻菜单,回访先看这格 */
 function saveBest(){try{localStorage.setItem('tornadoBest',best)}catch(e){}renderBests();}
 /* ---------- 存档续玩 ---------- */
 const SKEY='tornadoRun';
@@ -2478,7 +2483,7 @@ function endRush(){phase='win';pushHistory(runLabel(),score,120-rushT);
  const pre2=new Image();pre2.src=bgUrl2;
  let rec,bestCell;   // 每日与限时分账(精修#206):每日只写自己日期位,不许污染限时纪录
  if(mode==='daily'){const di=dailyInfo()||{best:0};rec=score>di.best;
-  if(rec)di.best=score;stats.daily={date:dateSeed(),best:di.best,played:1};saveStats();bestCell=di.best;}
+  if(rec)di.best=score;stats.daily={date:dateSeed(),best:di.best,played:1};saveStats();renderBests();bestCell=di.best;}
  else{rec=score>rushBest;
   if(rec){rushBest=score;
    try{localStorage.setItem('tornadoBestRush',rushBest)}catch(e){}
@@ -2623,11 +2628,19 @@ function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats=
 /* 每日挑战的城与票(精修#206):种子=当天日期 int,同一天全世界同一座城;
    门票开局即撕(io/Wordle 类每日的规矩)——中途退出也算用掉,防"反复重开刷好局" */
 function dateSeed(){const d=new Date();return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();}
+function yesterdaySeed(){const d=new Date(Date.now()-864e5);return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();}   /* 跨月/跨年由 Date 运算兜底,不做日历减法 */
 function dailyInfo(){return stats.daily&&stats.daily.date===dateSeed()?stats.daily:null;}
+function streakNow(){   /* 展示用的连续天数:昨天或今天打过才算连着,隔天即断(不靠 next-start 兜底,读数永远诚实) */
+ const st=stats.streak;return st&&(st.last===dateSeed()||st.last===yesterdaySeed())?st.n:0;}
 function startGame(m,night,snow){clearRun();mode=m||'campaign';isNight=!!night;isSnow=!!snow;
  if(mode==='daily'){const di=dailyInfo();
   if(di&&di.played){showHint('📅 今天的挑战已完成(最佳 '+di.best+' 分),明天刷新!',3200);return;}
-  stats.daily={date:dateSeed(),best:0,played:1};saveStats();}
+  stats.daily={date:dateSeed(),best:0,played:1};
+  /* 打卡连击(精修#208):今天首次开每日才算一天;昨天打过 → 连击+1,否则从 1 重新数 */
+  const st=stats.streak||{last:0,n:0};
+  st.n=st.last===yesterdaySeed()?st.n+1:1;st.last=dateSeed();
+  stats.streak=st;stats.streakBest=Math.max(stats.streakBest||0,st.n);
+  saveStats();checkAchv();renderBests();}
  lastStart={m:mode,night:isNight,snow:isSnow};
  applyNight();if(mode==='rush'){stats.rushPlays=(stats.rushPlays||0)+1;saveStats();checkAchv();}
 reset(mode==='daily'?dateSeed():undefined);applySnow();phase='play';saveStats();statline();
@@ -2741,7 +2754,7 @@ function toMenu(){disarmRestart();saveRun(); // 先落盘再决定「继续上�
   pushHistory(runLabel(),score,elapsed);
  phase='menu';$('pause').classList.add('hidden');$('win').classList.add('hidden');
  $('menu').classList.remove('hidden');setChrome(false);
- statline();/* #220 无尽/雪原"回主菜单"就是终点 */renderCont();cardFade();}
+ statline();/* #220 无尽/雪原"回主菜单"就是终点 */renderCont();renderBests();cardFade();}   /* 精修#208:回菜单连每日徽章一起刷新(结算/中途退出两条路都盖到) */
 $('pp').onclick=togglePause;
 $('presume').onclick=resumeGame;
 $('prestart').onclick=()=>{const el=$('prestart');
