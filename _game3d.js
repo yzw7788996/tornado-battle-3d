@@ -1743,11 +1743,12 @@ function renderAchv(){const el=$('achv');
  el.innerHTML=`<div style="width:100%;font-size:11px;opacity:.6;letter-spacing:2px;margin-bottom:2px">🏅 成就 ${got}/${ACHV.length}</div>`
   +ord.map(a=>{const on=stats.achv[a.id],p=a.prog(stats);
   // 牌面写"已 X/门槛":只有门槛的话,玩家分不清自己差 1 件还是差 40 件;分子与 test 同取 a.field
-  return `<span class="ach${on?' on':''}" title="${a.name} · 已 ${p}/${a.need}${a.unit}">${a.icon} ${a.name}<em>${p}/${a.need}${a.unit}</em></span>`;}).join('');
+  const nw=on&&Date.now()-stats.achv[a.id]<864e5;   /* NEW 角标(216):解锁 24h 内;配合 215 前排分组,最近战果一眼可见 */
+  return `<span class="ach${on?' on':''}" title="${a.name} · 已 ${p}/${a.need}${a.unit}">${nw?'<b style="color:#2c5d1f;background:#ffd75e;border-radius:6px;padding:0 4px;font-size:9px;margin-right:4px;vertical-align:1px">NEW</b>':''}${a.icon} ${a.name}<em>${p}/${a.need}${a.unit}</em></span>`;}).join('');
  if($('moreBtn'))$('moreBtn').textContent=moreSummary();}
 function checkAchv(){let newly=null;
  for(const a of ACHV){if(!stats.achv[a.id]&&a.test(stats)){
-  stats.achv[a.id]=true;newly=a;}}
+  stats.achv[a.id]=Date.now();newly=a;}}   /* 存解锁时刻(216):NEW 角标要分"刚拿到"和"早就有了";旧档的 true 参与减法得 NaN → 恒非 NEW,天然兼容 */
  if(newly){saveStats();renderAchv();showHint(`🏅 成就解锁:${newly.name}!`,2600);}}
 let hintTO=null,lockHintT=0;
 /* 下一级解锁了什么:直接告诉玩家该去找什么吃 */
