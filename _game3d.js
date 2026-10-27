@@ -1543,9 +1543,12 @@ let comboShown=0;
    probe58 实测:跨过上局最佳前后,可见读数(HUD 五格 + 计时 + 提示 + 飘字)里提到这个数的有 0 个。
    分数是瞬加的那条时间轴不作证据,这里只补"多少算好"这一个数。 */
 function rushGoal(){const el=$('rushgoal');if(!el)return;
- if(mode!=='rush'||phase!=='play'||rushEnded){el.style.display='none';return;}
+ if((mode!=='rush'&&mode!=='daily')||phase!=='play'||rushEnded){el.style.display='none';return;}
  el.style.display='block';
- const txt=rushBest?(score>rushBest?'🔥 已破纪录 +'+(score-rushBest):'目标 '+rushBest+' · 还差 '+(rushBest-score))
+ let txt;
+ if(mode==='daily'){const di=dailyInfo();const b=di?di.best:0;   // 每日只对"今天"自己的最佳较劲(精修#206)
+  txt=b?('📅 今日最佳 '+b+(score>b?' · 已超 +'+(score-b):' · 还差 '+(b-score))):'📅 首次挑战';}
+ else txt=rushBest?(score>rushBest?'🔥 已破纪录 +'+(score-rushBest):'目标 '+rushBest+' · 还差 '+(rushBest-score))
   :'目标 尚无纪录';
  if(el.textContent!==txt)el.textContent=txt;} // 每帧都调,但只在文案真的变了时写 DOM
 function showCombo(){const el=$('combo');
@@ -1846,7 +1849,7 @@ function consume(o){score+=o.pts;eaten++;stats.eaten++;kindStats[o.k]=(kindStats
  // 峰值要取在自增之后:取在之前 ×N 连击只会记成 N-1(横幅在 ×25 庆祝,「连击大师」却要 26 连才解锁)
  if(comboN>stats.maxCombo)stats.maxCombo=comboN;
  if(comboN>runCombo)runCombo=comboN;   // 本局峰值:结算卡要说"这一局"的连击,不是账号累计的
- if(score>best&&!(mode==='rush'&&rushEnded)){best=score;saveBest();}
+ if(score>best&&!((mode==='rush'||mode==='daily')&&rushEnded)){best=score;saveBest();}
  // ↑ 限时挑战结算之后点「继续闲逛」的那段没有时间限制,不该再把全局最高分抬上去
  // (实测:4671 分结算 → 闲逛 75 秒到 8384,而"挑战最佳"停在 4669,两个数自相矛盾)
  checkAchv();
@@ -1865,15 +1868,19 @@ function consume(o){score+=o.pts;eaten++;stats.eaten++;kindStats[o.k]=(kindStats
 function endRush(){phase='win';pushHistory(runLabel(),score,120-rushT);
  const bgUrl2=snapshotCity();setWinBg(bgUrl2);lastRuinUrl=bgUrl2;
  const pre2=new Image();pre2.src=bgUrl2;
- const rec=score>rushBest;
- if(rec){rushBest=score;
-  try{localStorage.setItem('tornadoBestRush',rushBest)}catch(e){}
-  renderBests();} // 破纪录的这一刻就重画:菜单不许等到刷新页面才认账
- stats.rushBest=Math.max(stats.rushBest||0,score);   // 限时好手成就的账:进 stats 才能被 checkAchv 的 field 管线读到(全局 rushBest 只服务菜单读数)
+ let rec,bestCell;   // 每日与限时分账(精修#206):每日只写自己日期位,不许污染限时纪录
+ if(mode==='daily'){const di=dailyInfo()||{best:0};rec=score>di.best;
+  if(rec)di.best=score;stats.daily={date:dateSeed(),best:di.best,played:1};saveStats();bestCell=di.best;}
+ else{rec=score>rushBest;
+  if(rec){rushBest=score;
+   try{localStorage.setItem('tornadoBestRush',rushBest)}catch(e){}
+   renderBests();} // 破纪录的这一刻就重画:菜单不许等到刷新页面才认账
+  stats.rushBest=Math.max(stats.rushBest||0,score);   // 限时好手成就的账:进 stats 才能被 checkAchv 的 field 管线读到(全局 rushBest 只服务菜单读数)
+  bestCell=rushBest;}
  $('winTitle').textContent='⏱ 时间到!';
  $('stats').innerHTML='<div class="st"><b>'+score+'</b><span>本局得分</span></div>'+
   '<div class="st"><b>'+eaten+'</b><span>吞噬物件</span></div>'+
-  '<div class="st"><b>'+rushBest+'</b><span>挑战最佳</span></div>'+kindLine();
+  '<div class="st"><b>'+bestCell+'</b><span>'+(mode==='daily'?'今日最佳':'挑战最佳')+'</span></div>'+kindLine();
  $('rec').style.display=rec?'block':'none';
  lastIsRecord=rec;
  $('timerbox').style.display='none';
@@ -2004,12 +2011,19 @@ function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats=
  setupProbe();
  buildMinimap();startT=performance.now()/1000;clearMsgs();
  $('lvname').textContent=lvLabel();lvFlashT=2.2;$('fill').style.width='0%';showUnlock();}
+/* 每日挑战的城与票(精修#206):种子=当天日期 int,同一天全世界同一座城;
+   门票开局即撕(io/Wordle 类每日的规矩)——中途退出也算用掉,防"反复重开刷好局" */
+function dateSeed(){const d=new Date();return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();}
+function dailyInfo(){return stats.daily&&stats.daily.date===dateSeed()?stats.daily:null;}
 function startGame(m,night,snow){clearRun();mode=m||'campaign';isNight=!!night;isSnow=!!snow;
+ if(mode==='daily'){const di=dailyInfo();
+  if(di&&di.played){showHint('📅 今天的挑战已完成(最佳 '+di.best+' 分),明天刷新!',3200);return;}
+  stats.daily={date:dateSeed(),best:0,played:1};saveStats();}
  lastStart={m:mode,night:isNight,snow:isSnow};
  applyNight();if(mode==='rush'){stats.rushPlays=(stats.rushPlays||0)+1;saveStats();checkAchv();}
-reset();applySnow();phase='play';saveStats();statline();
- rushEnded=false;rushT=mode==='rush'?120:0;
- $('timerbox').style.display=(mode==='rush')?'block':'none';
+reset(mode==='daily'?dateSeed():undefined);applySnow();phase='play';saveStats();statline();
+ rushEnded=false;rushT=(mode==='rush'||mode==='daily')?120:0;
+ $('timerbox').style.display=(mode==='rush'||mode==='daily')?'block':'none';
  $('timerbox').classList.remove('danger');
  $('timerbox').textContent='⏱ '+fmt(rushT);
  $('menu').classList.add('hidden');$('win').classList.add('hidden');
@@ -2017,13 +2031,16 @@ reset();applySnow();phase='play';saveStats();statline();
  lockHintT=(mode==='campaign')?8:3; // 开局先让玩家吃明白,不急着解释吃不动的
  startTutorial();
  if(!tutActive())showHint(mode==='rush'?'⏱ 2 分钟,卷出最高分!'
+   :mode==='daily'?'📅 今日之城,2 分钟一次机会!'
    :mode==='endless'?'♾️ 物件会不断重生,尽管拼高分!':'先去吃花花草草,把自己吃大!',2600);}
-/* ---------- 模式选择:五个模式各有目标,选完在"开始"上说明白 ---------- */
+/* ---------- 模式选择:六个模式各有目标,选完在"开始"上说明白 ---------- */
 const MODES={
  campaign:{m:'campaign',n:false,s:false,nm:'闯关',
   tip:'目标:卷碎黄金电视塔就通关。进度每 4 秒自动存档,中途可续玩。'},
  rush:{m:'rush',n:false,s:false,nm:'限时',
   tip:'目标:2 分钟内卷出最高分。时间到立刻结算,本模式不存档。'},
+ daily:{m:'daily',n:false,s:false,nm:'每日',
+  tip:'每天一座按日期固定的城,2 分钟一次机会,只跟今天的自己比。门票开局即用,明天刷新。'},
  endless:{m:'endless',n:false,s:false,nm:'无尽',
   tip:'吃掉的物件会在远处重生,城市永不枯竭,一直拼高分。电视塔卷不动。'},
  night:{m:'campaign',n:true,s:false,nm:'夜城',
@@ -2068,7 +2085,7 @@ $('share').onclick=()=>genShareCard(lastRuinUrl);
 $('shareClose').onclick=()=>$('shareLayer').classList.add('hidden');
 $('free').onclick=()=>{$('win').classList.add('hidden');phase='play';startT=performance.now()/1000-elapsed;
  // 闲逛段要看得出现在是闲逛:计时的盒子回来报"已结束",而不是凭空消失
- if(mode==='rush'&&rushEnded){const tb=$('timerbox');tb.style.display='block';
+ if((mode==='rush'||mode==='daily')&&rushEnded){const tb=$('timerbox');tb.style.display='block';
   tb.classList.remove('danger');tb.textContent='⏱ 已结束 · 不计纪录';}};
 
 /* ---------- 暂停 / 回菜单 ---------- */
@@ -2076,7 +2093,7 @@ let lastStart={m:'campaign',night:false,snow:false},pauseAt=0;
 /* 模式名只有一个来源:写"最近战绩"、暂停卡上的「重新开始」、存档提示都问它。
    以前 win() 里写死 '闯关',于是夜城那一局在历史里和闯关长得一模一样(实测历史行
    "闯关·1681分·23s" 其实是夜城)。 */
-function runLabel(){return mode==='rush'?'限时挑战':mode==='endless'?(isSnow?'雪原':'无尽'):(isNight?'夜城':'闯关')}
+function runLabel(){return mode==='daily'?'每日挑战':mode==='rush'?'限时挑战':mode==='endless'?(isSnow?'雪原':'无尽'):(isNight?'夜城':'闯关')}
 function setChrome(on){$('hud').classList.toggle('off',!on);$('mm').classList.toggle('off',!on);
  $('timerbox').classList.toggle('off',!on);$('rvpill').classList.toggle('off',!on);}
 function psaveText(){if(mode!=='campaign')return mode==='rush'
@@ -2185,7 +2202,7 @@ function update(dt){elapsed=performance.now()/1000-startT;const p=Math.min(1,sco
  $('combobar').style.transform='scaleX('+Math.max(0,comboT/COMBO_T).toFixed(3)+')';
  rushGoal();
  if(saveCool<=0&&phase==='play'&&score>0&&mode==='campaign'){saveRun();saveCool=4;}
- if(mode==='rush'&&!rushEnded&&phase==='play'){
+ if((mode==='rush'||mode==='daily')&&!rushEnded&&phase==='play'){
   rushT=Math.max(0,120-elapsed); // 倒计时按墙钟走,低帧率设备不会被拖长
   if(rushT<=0){rushEnded=true;endRush();}
   else{const t=Math.ceil(rushT);
