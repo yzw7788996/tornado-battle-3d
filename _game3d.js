@@ -1064,7 +1064,9 @@ function parkCarry(){for(let i=0;i<CARRYN;i++){carryD[i].on=false;
  carryMesh.instanceMatrix.needsUpdate=true;}
 parkCarry();
 function spawnCarry(k){const d=carryD.find(c=>!c.on);if(!d)return;   /* 满了就不再长:壮观点到为止 */
- d.on=true;d.a=rnd(0,6.28);d.r=T.r*rnd(1.35,2.1);d.y=rnd(6,64);d.s=rnd(.35,.9);d.sz=rnd(1.4,3.2)*(T.r/26);
+ /* 半径/尺寸一律用 26 基准的局部单位:tornado 组每帧已按 T.r/26 整体缩放,这里再乘 T.r 等于算两遍
+    ——217 轮投影实证:75 级时随行圈世界半径 322~500,该深度水平半视宽仅 ~117,24 块全部出框(inN=0) */
+ d.on=true;d.a=rnd(0,6.28);d.r=26*rnd(1.35,2.1);d.y=rnd(6,64);d.s=rnd(.35,.9);d.sz=rnd(1.4,3.2);
  /* 形状语言(精修#210):同一 jaggedBox 靠非均匀比例读出"这是什么" —— 木料长条/车壳扁片/树叶团簇,
     石头保方,混凝土厚板;比例与 DEBNAT 同出处(POOLMAP),色形一套真相 */
  const pk=POOLMAP[k]||'concrete';
