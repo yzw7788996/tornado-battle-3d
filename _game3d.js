@@ -1765,7 +1765,11 @@ function renderAchv(){const el=$('achv');
   +ord.map(a=>{const on=stats.achv[a.id],p=a.prog(stats);
   // 牌面写"已 X/门槛":只有门槛的话,玩家分不清自己差 1 件还是差 40 件;分子与 test 同取 a.field
   const nw=on&&Date.now()-stats.achv[a.id]<864e5;   /* NEW 角标(216):解锁 24h 内;配合 215 前排分组,最近战果一眼可见 */
-  return `<span class="ach${on?' on':''}" title="${a.name} · 已 ${p}/${a.need}${a.unit}">${nw?'<b style="color:#2c5d1f;background:#ffd75e;border-radius:6px;padding:0 4px;font-size:9px;margin-right:4px;vertical-align:1px">NEW</b>':''}${a.icon} ${a.name}<em>${p}/${a.need}${a.unit}</em></span>`;}).join('');
+  // 解锁日期(#222):NEW 只亮 24h,过了之后"这枚啥时候拿的"仍要可查。typeof 守卫挡旧档的布尔 true
+  //   (isFinite(true)===true 会把 1970/1/1 写上去),216 的 NaN 兼容思路同族
+  const v=stats.achv[a.id],dd=(on&&typeof v==='number'&&v>1e12)?new Date(v):null;
+  const ds=dd?' · '+(dd.getMonth()+1)+'/'+dd.getDate():'';
+  return `<span class="ach${on?' on':''}" title="${a.name} · 已 ${p}/${a.need}${a.unit}">${nw?'<b style="color:#2c5d1f;background:#ffd75e;border-radius:6px;padding:0 4px;font-size:9px;margin-right:4px;vertical-align:1px">NEW</b>':''}${a.icon} ${a.name}<em>${p}/${a.need}${a.unit}${ds}</em></span>`;}).join('');
  if($('moreBtn'))$('moreBtn').textContent=moreSummary();}
 function checkAchv(){let newly=null;
  for(const a of ACHV){if(!stats.achv[a.id]&&a.test(stats)){
