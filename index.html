@@ -2929,8 +2929,12 @@ function pauseGame(){if(phase!=='play')return;
  phase='paused';pauseAt=performance.now()/1000;saveRun();
  // 暂停这一刻 HUD 那格也要跟上:update() 在暂停后不再跑,不补这一刀就会出现"暂停屏 0:05 / HUD 0:02"
  showClock();
+ /* 暂停屏是手机上最高频的屏(切后台即自动暂停):等级+名称与本局最高连击给"回来继续"一个理由,
+    五格由 .stats 的 flex-wrap 自然折行(结算卡同款容器,241 巡检已证布局鲁棒) */
  $('pstats').innerHTML='<div class="st"><b>'+score+'</b><span>当前得分</span></div>'+
+  '<div class="st"><b>LV.'+level+'</b><span>'+LVN[level-1]+'</span></div>'+
   '<div class="st"><b>'+eaten+'</b><span>已吞噬</span></div>'+
+  '<div class="st"><b>×'+runCombo+'</b><span>最高连击</span></div>'+
   '<div class="st"><b>'+fmt(elapsed)+'</b><span>已用时</span></div>';
  $('psave').textContent=psaveText();
  $('prestart').textContent='重新开始 · '+runLabel();
