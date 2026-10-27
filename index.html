@@ -1924,6 +1924,13 @@ const rp2p=new THREE.Points(rp2g,new THREE.PointsMaterial({map:TEX.dustPuff,colo
 rLean.add(rp2p);
 const rp=[];for(let i=0;i<RN2;i++)rp.push({t:Math.random(),a:rnd(0,6.28),s:rnd(2,4),j:rnd(.8,1.2)});
 scene.add(rival);rival.visible=false;
+/* 反咬预警(精修#212):对手高 2 级(够格咬你,见 211 的判定)时头顶亮红色脉冲锥 ——
+   威胁要在被咬之前读得出来,而不是被卷走 25% 分数之后才后知后觉 */
+const rvWarn=new THREE.Mesh(new THREE.ConeGeometry(9,22,4),
+ new THREE.MeshBasicMaterial({color:0xff3b2f,transparent:true,opacity:.92,depthWrite:false}));
+rvWarn.rotation.x=Math.PI;   /* 倒扣,像一枚立着的警示钉 */
+rvWarn.position.y=104;
+rival.add(rvWarn);rvWarn.visible=false;
 function rivalUpdate(dt){if(phase==='menu')return;
  /* 被吞后的重生倒计时(精修#205,io 类标准终局:大吃小 —— 同类 hole.io/tornado.io 都以"吞掉对手"收尾,
     而我们的对手此前碰不得,支配感爽点缺失):吃掉的一方按对手积分拿大额奖励,对手 15 秒后异地零分重生。 */
@@ -1987,6 +1994,10 @@ function rivalUpdate(dt){if(phase==='menu')return;
  // 外观
  rival.visible=true;
  rival.position.set(RV.x,0,RV.z);
+ rvWarn.visible=RV.lvl>=level+2;   /* 够格咬你才亮;对手越小越不亮 —— 预警只留给真实威胁 */
+ if(rvWarn.visible){const pu=1+Math.sin(time*7)*.18;
+  rvWarn.scale.setScalar(pu);rvWarn.position.y=104+Math.sin(time*7)*4;   /* 脉冲+轻浮:威胁的呼吸感 */
+  rvWarn.rotation.y=time*2;}
  const rs=.8+Math.min(1.6,RV.score*.0015);
  rival.scale.setScalar(rs);
  rf1.rotation.y=-time*1.5;rf2.rotation.y=time*2;
