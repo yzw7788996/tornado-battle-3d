@@ -381,10 +381,6 @@ const CARGLASS=std(0x101c26,.12,.9,{envMapIntensity:.95});
 const TIRE=std(0x181a1c,.9,0);
 const HUB=std(0xc8ccd2,.35,.85,{envMapIntensity:.9});
 const FLOWC=[0xe0568f,0xe8b32c,0x9a6fd6,0xd97b52].map(c=>std(c,.8,0));
-const DEBC={flower:0xd06a9a,grass:0x4a7a3c,rock:0x8d9196,trash:0x4a5b45,bench:0x8a5f36,lamp:0xd8d2b8,
- bike:0x37474f,boulder:0x8d9196,bush:0x3d6e34,tree_s:0x3d7433,tree_b:0x3d7433,car:0x8a8f94,
- bus:0xc9c9c9,house_s:0xb8a888,house_b:0x9a8a74,truck:0xc9ccce,water:0xa9bfc9,
- bld_m:0xa8abae,bld_l:0x9a9da0,sky:0x7f98ad,landmark:0xc9b06a};
 
 /* ---------- 程序生成建筑贴图 ---------- */
 function noiseOn(g,w,h,n,a){for(let i=0;i<n;i++){g.fillStyle='rgba(0,0,0,'+(Math.random()*a)+')';
