@@ -1939,7 +1939,11 @@ function rivalUpdate(dt){if(phase==='menu')return;
  if(RV.dead>0){RV.dead-=dt;
   if(RV.dead<=0){RV.x=rnd(200,WORLD-200);RV.z=rnd(200,600);RV.tgt=null;RV.dead=0;rival.visible=true;
    if(phase==='play')showHint('对手卷土重来了!',2000);}
-  else return;}
+  else{ /* 倒计时期间药丸不能停在"被吞!"静态文案:威胁何时回来要有预期,与重生那声"卷土重来了!"首尾呼应;
+          按秒写 textContent(帧级重写同值白费布局,分数栏 2399 同款节流) */
+   if(RV.pill){const t='🔴 对手 '+Math.ceil(RV.dead)+'s 后回归';
+    if(RV.pill.textContent!==t)RV.pill.textContent=t;}
+   return;}}
  RV.lvl=Math.min(8,1+((RV.score/150)|0));
  RV.r=20+Math.min(40,RV.score*.03);
  /* 吞噬判定:显著更大才吃得动(高 2 级),近身即吞 —— 单向支配;反向(对手吃玩家)涉及败局设计,挂账候选 */
