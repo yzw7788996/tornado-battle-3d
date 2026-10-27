@@ -563,6 +563,11 @@ var SPIN0=(function(){var e=el('bootSpin');return e?e.textContent:''})();
     <h1 id="winTitle">城市上天啦</h1>
     <div class="hr"><span>MISSION COMPLETE</span></div>
     <div class="stats" id="stats"></div>
+    <!-- 足迹小地图:"这局毁了多大一片城"结算瞬间一眼可读(Hole.io 式结算满足感)。
+         卡有 max-height:92vh+overflow:auto 兜底,横屏矮窗里按钮被往下推时卡内可滚,
+         但仍压到 min(150px,36vw) 不放肆 —— 结算卡没有 #menu 那套"下面还有"内阴影线索 -->
+    <canvas id="footmap" width="264" height="264" style="display:block;width:min(150px,36vw);aspect-ratio:1/1;border-radius:10px;margin:8px auto 0"></canvas>
+    <p class="mini" style="margin:4px 0 0;text-align:center">🗺️ 本局足迹 · 红痕=毁掉的街区</p>
     <p class="rec" id="rec" style="display:none">★ 新纪录 ★</p>
     <!-- 三颗行动包一行:横屏 844×390 下竖排会把第三颗「📥 生成战报卡」推到视口外
          (实测 376-425 而视口只有 390 高,卡片 427/357 要滚,而这张卡没有 #menu 那套"下面还有"线索) -->

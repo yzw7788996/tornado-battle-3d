@@ -1699,6 +1699,18 @@ function drawMinimap(){const S=mm.width,k=S/WORLD;
  mmx.fillStyle='#fff';mmx.beginPath();mmx.arc(cx,cz,5,0,7);mmx.fill();
  mmx.strokeStyle='rgba(255,255,255,.85)';mmx.lineWidth=1.5;
  mmx.beginPath();mmx.arc(cx,cz,8,0,7);mmx.stroke();}
+/* 结算卡足迹小地图(#220):城市底图复用 mmBase,不另画一套;红痕=scarList 焦痕(半径随 o.r),
+   绿点=stumpList 树桩,🌪️=终局站位。k 与 buildMinimap 同源(264/WORLD),264 基准与画布声明一致 */
+function drawFootmap(){const c=$('footmap');if(!c)return;const x=c.getContext('2d'),k=264/WORLD;
+ x.clearRect(0,0,264,264);x.drawImage(mmBase,0,0);
+ /* 尺寸下限与不透明度是目检定的:26 单位焦痕在 264/WORLD 比例下只有 ~2px、55% 透明度几乎看不见
+    (#220 首版实测红痕仅 24 像素);树桩用暖棕 —— 底图绿地大量绿像素,绿点直接淹没(实测 2.9 万绿噪) */
+ x.fillStyle='rgba(255,90,74,.68)';
+ for(const s of scarList){x.beginPath();x.arc(s[0]*k,s[1]*k,Math.max(2.5,s[2]*k),0,7);x.fill();}
+ x.fillStyle='#e8c27a';
+ for(const t of stumpList){x.beginPath();x.arc(t[0]*k,t[1]*k,1.8,0,7);x.fill();}
+ x.font='13px sans-serif';x.textAlign='center';x.textBaseline='middle';
+ x.fillText('🌪️',T.x*k,T.z*k);}
 
 /* ---------- 游戏流程 ---------- */
 let phase='menu',score=0,eaten=0,level=1,startT=0,elapsed=0,time=0,last=0,
@@ -1968,6 +1980,7 @@ function endRush(){phase='win';pushHistory(runLabel(),score,120-rushT);
  lastIsRecord=rec;
  $('timerbox').style.display='none';
  $('rushgoal').style.display='none'; // 结算屏不再报目标:update() 到 phase='win' 就不跑了,谁写下这个状态谁负责收
+ drawFootmap();
  $('win').classList.remove('hidden');
  checkAchv();saveStats();statline();/* #220 限时的这一局到此为止:菜单那行当场认账 */}
 
@@ -2068,6 +2081,7 @@ function win(){phase='win';stats.wins++;if(isNight)stats.nightWins=(stats.nightW
   lastIsRecord=rec;
   setWinBg(bgUrl);lastRuinUrl=bgUrl;
   const pre=new Image();pre.src=bgUrl; // 预解码,分享时同步可绘
+  drawFootmap();
   $('win').classList.remove('hidden');},1400);}
 function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats={};runCombo=0;
  comboN=0;comboT=0;comboShown=0;   // 新局不许继承上一局的连击链(实测:再玩一次那一刻 HUD 仍挂着 ×164)
