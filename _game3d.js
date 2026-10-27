@@ -1358,7 +1358,9 @@ function rivalUpdate(dt){if(phase==='menu')return;
  /* 吞噬判定:显著更大才吃得动(高 2 级),近身即吞 —— 单向支配;反向(对手吃玩家)涉及败局设计,挂账候选 */
  if(level>=RV.lvl+2&&RV.dead<=0&&Math.hypot(RV.x-T.x,RV.z-T.z)<T.r*2+RV.r){
   const gain=100+Math.round(RV.score*.4);
-  score+=gain;stats.rivalEats=(stats.rivalEats||0)+1;saveStats();checkAchv();
+  score+=gain;stats.rivalEats=(stats.rivalEats||0)+1;
+  if(stats.bitten)stats.revenge=1;   /* 复仇者(精修#213):先被咬(211)再吞回(205)才算 —— 单纯欺负小对手不算复仇 */
+  saveStats();checkAchv();
   banner('吞噬对手!+'+gain);vibTier(8);shake=Math.min(1,shake+.5);fovKick=8;
   burstCols('metal',[0xff5a4a,0xffd75e],10);blip(180,900,.35,.12,'sawtooth');
   RV.dead=15;RV.score=0;RV.lvl=1;RV.r=20;rival.visible=false;
@@ -1724,6 +1726,7 @@ const ACHV=[
  {id:'rv1', icon:'🌀', name:'吞天者', field:'rivalEats', need:1, unit:'次吞噬'},   // 精修#205:吞掉对手的战绩徽章(成就二波同管线)
  {id:'st3', icon:'📅', name:'三日之约', field:'streakBest', need:3, unit:'天连续'},   // 精修#208:每日打卡连击,门槛对齐周末回归节奏
  {id:'st7', icon:'🗓️', name:'七日风暴', field:'streakBest', need:7, unit:'天连续'},
+ {id:'rv2', icon:'⚔️', name:'复仇者', field:'revenge', need:1, unit:'次复仇'},   // 精修#213:被咬过再吞回对手
  /* 第二波(DEVLOG 15/39 轮挂账的"成就第二波"):只补高级档与新维度,不重复旧门槛;
     nightWins/rushBest 是新统计位,分别由 win()(夜城那一局)与 endRush()(限时结算)落账 */
  {id:'w10', icon:'👑', name:'风暴领主', field:'wins', need:10, unit:'次通关'},
