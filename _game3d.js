@@ -2389,7 +2389,7 @@ function renderSettings(){
 $('sNote').textContent=(CFG.reduce==='auto'
   ? '减弱动效跟随系统设置(本机系统:'+(sysReduce()?'减少动效':'标准')+')'
   : '已手动设为'+(CFG.reduce==='on'?'减弱动效 — 不顿帧、不震屏、闪光减弱':'标准动效'))+(CFG.quality==='auto'?' · 画质自动 当前 ×'+renderer.getPixelRatio():'');}
-function openSettings(){if(phase==='play')pauseGame();
+function openSettings(){disarmRestart();if(phase==='play')pauseGame();   /* #345(远端对齐):已暂停时开设置也要撤销「再点一次」的待确认态 */
  $('settings').classList.remove('hidden');renderSettings();
  cardFade();settingsOpener=document.activeElement;}   // 面板刚显形才量得到 scrollHeight:滚动线索不能等下一次 resize 才补
 function closeSettings(){$('settings').classList.add('hidden');if(typeof syncInert==='function')syncInert();if(settingsOpener&&settingsOpener.isConnected&&!settingsOpener.closest('[inert]')){try{settingsOpener.focus();}catch(e){}}}
@@ -2632,7 +2632,7 @@ document.addEventListener('visibilitychange',()=>{
    if(rnGain)rnGain.gain.value=0;
    if(sirenGain)sirenGain.gain.value=0;}catch(e){}}
   if(phase==='play')pauseGame();
-  dropInput();}}); // pauseGame 内部已 saveRun;顺手把键和拖动态清掉(见输入段)
+  disarmRestart();dropInput();}});   /* #345(远端对齐):已暂停时切走标签同样撤销待确认 */ // pauseGame 内部已 saveRun;顺手把键和拖动态清掉(见输入段)
 addTufts();addClouds();
 RV.pill=$('rvpill');
 // iOS 添加主屏引导(一次性)
