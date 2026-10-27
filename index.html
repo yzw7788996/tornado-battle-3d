@@ -2351,7 +2351,10 @@ function renderAchv(){const el=$('achv');
  /* 解锁分组(精修#215):16 枚一排到底,找"拿到手的"要逐个扫 —— 已解锁排前、未解锁排后,
     组内保持声明序(稳定排序);解锁瞬间的 checkAchv 重渲染,新徽章一定在最前排 */
  const ord=[...ACHV].sort((a,b)=>((stats.achv[b.id]?1:0)-(stats.achv[a.id]?1:0)));
- el.innerHTML=`<div style="width:100%;font-size:11px;opacity:.6;letter-spacing:2px;margin-bottom:2px">🏅 成就 ${got}/${ACHV.length}</div>`
+ /* 全收集读数(#226):n/16 是给扫一眼的,"还差几枚"是给收集党定目标的;满收集 16/16 此前
+    与 15/16 毫无区别 —— 高光时刻必须叫得出声,这是成就墙的终点线 */
+ const tail=got>=ACHV.length?' · 🏆 全收集达成':(got>0?' · 还差 '+(ACHV.length-got)+' 枚':'');
+ el.innerHTML=`<div style="width:100%;font-size:11px;opacity:.6;letter-spacing:2px;margin-bottom:2px">🏅 成就 ${got}/${ACHV.length}${tail}</div>`
   +ord.map(a=>{const on=stats.achv[a.id],p=a.prog(stats);
   // 牌面写"已 X/门槛":只有门槛的话,玩家分不清自己差 1 件还是差 40 件;分子与 test 同取 a.field
   const nw=on&&Date.now()-stats.achv[a.id]<864e5;   /* NEW 角标(216):解锁 24h 内;配合 215 前排分组,最近战果一眼可见 */
