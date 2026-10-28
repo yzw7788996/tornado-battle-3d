@@ -2354,7 +2354,7 @@ function drawFootmap(){const c=$('footmap');if(!c)return;const x=c.getContext('2
  x.clearRect(0,0,264,264);paintFoot(x);}
 
 /* ---------- 游戏流程 ---------- */
-let phase='menu',score=0,eaten=0,level=1,startT=0,elapsed=0,time=0,last=0,
+let phase='menu',menuTick=0,score=0,eaten=0,level=1,startT=0,elapsed=0,time=0,last=0,
  shake=0,hitstop=0,funnelPulse=0,hintT=0,startBest=0,vx=0,vz=0,comboN=0,comboT=0,fovKick=0,runCombo=0,
  mode='campaign',rushT=0,rushEnded=false;
 let best=0;try{best=+localStorage.getItem('tornadoBest')||0}catch(e){}
@@ -3213,7 +3213,10 @@ function frame(ts){requestAnimationFrame(frame);syncInert();
  rivalUpdate(dt);
  sun.position.set(T.x+260,520,T.z+180);
  sun.target.position.set(T.x,0,T.z);
- renderer.render(scene,camera);
+ /* 菜单渲染节流(#293):菜单只有慢速环绕镜头(30fps 视觉无差),隔帧出图让手机停在菜单时的
+    GPU/发热减半 —— 玩法相位全速不动;time 照常推进,环绕速度不变。menuTick 初始 0 ⇒ 首帧必出,
+    开机看门狗等到的第一帧不受影响 */
+ if(phase!=='menu'||menuTick++%2===0)renderer.render(scene,camera);
  if(!flashActive){for(const bm of BLD){
    const base=bm===BLD[4]?.0:0.55; // 玻璃塔无 emissiveMap
    bm.emissiveIntensity+= (base-bm.emissiveIntensity)*Math.min(1,dt*6);}}
