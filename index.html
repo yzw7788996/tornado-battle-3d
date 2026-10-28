@@ -2226,6 +2226,14 @@ const pend=e=>{if(e.pointerId!==pid)return;
   if(Math.hypot(T.tx-T.x,T.tz-T.z)<T.r*1.2){T.tx=ox;T.tz=oz;}}
  pid=null;};
 addEventListener('pointerup',pend);addEventListener('pointercancel',pend);
+/* GL 上下文丢失自愈(#296):手机内存压力下系统会杀 WebGL 上下文,不 preventDefault 的话 canvas 永久失效、
+   游戏冻死。处置=阻止默认 + 紧急存档(闯关本就 4s 自动存,这里盖住最后一段)+ 提示 + 1.2s 自动重载
+   (SW 离线缓存使重载近秒开,「▶ 继续上次」接回进度)。rush/每日本就不存档,行为与手滑关页一致 */
+cvs.addEventListener('webglcontextlost',e=>{
+ e.preventDefault();
+ try{if(phase==='play'||phase==='paused')saveRun();}catch(_){}
+ showHint('⚠️ 显卡资源被系统回收,正在自动恢复…',3000);
+ setTimeout(()=>location.reload(),1200);},false);
 // keyup 更不保证送到:切去别的程序时它发给了那个程序,回到本页那根键还留着 ⇒ 风柱自己狂奔
 const dropInput=()=>{for(const k in keys)keys[k]=0;pid=null;};
 addEventListener('blur',dropInput);
