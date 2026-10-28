@@ -70,8 +70,9 @@ V3.2.0 起的实测数:6,623,764 字节,md5 `c07539a1…`,见 DEVLOG 精修第 1
 本项目两次被"浏览器启发式缓存"咬过(DEVLOG r120a 与精修#122 各一条红尾):静态服务器不发 `Cache-Control`
 时,浏览器对 classic.html / manifest.json 这类小文件按"距 Last-Modified 时长的 10%"自行推定新鲜期 ——
 发布更新后,老玩家可能几小时内仍被喂旧文件。三个页面里只有 index.html 例外:它的导航走 Service Worker
-"网络优先"(sw.js 主脚本默认绕过 HTTP 缓存,所以 SW 与主页面更新一定能到达),受害的是 classic.html、
-manifest.json 和图标。按文件分两档配:
+"缓存即出+后台刷新"(stale-while-revalidate,精修#298;此前是网络优先 —— 老玩家每次启动都同步等 6.6MB
+重下,慢网数秒)。更新语义变为"后台拉新、下次启动生效";SW 主脚本仍绕 HTTP 缓存检查更新,新 CACHE 键在
+activate 清旧,更新路径两次启动内收敛。受害的是 classic.html、manifest.json 和图标。按文件分两档配:
 
 | 文件 | Cache-Control | 理由 |
 |---|---|---|

@@ -30,11 +30,14 @@ self.addEventListener('fetch',e=>{
     // 早先按"导航到的那个 URL"存、却按 './index.html' 取,从站点根地址进入后断网重进必然落空;
     // 单键时代 classic 断网会错拿 3D 版(#138 修),根地址 '/' 两个 endsWith 都不中,仍落 PAGE。
     const key=classic?CLASSIC:PAGE;
-    e.respondWith(fetch(e.request).then(res=>{
-      const cp=res.clone();
-      caches.open(CACHE).then(c=>c.put(key,cp));
-      return res;
-    }).catch(()=>caches.match(key)));
+    /* SWR(#298):回访启动不再等 6.6MB 重下 —— 缓存里有就立刻出图,后台拉新写入缓存,更新下次启动生效。
+       原"网络优先"让老玩家每次启动都同步等全量下载(慢网下数秒),而更新本就少发;SW 脚本自身仍走
+       浏览器的更新检查(绕 HTTP 缓存),新 CACHE 键在 activate 清旧 → 更新路径两次启动内收敛 */
+    e.respondWith(caches.match(key).then(cached=>{
+      const net=fetch(e.request).then(res=>{
+        if(res.ok)caches.open(CACHE).then(c=>c.put(key,res.clone()));
+        return res;}).catch(()=>cached);
+      return cached||net;}));
   }else{
     // 静态资源:缓存优先
     e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{
