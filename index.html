@@ -680,7 +680,11 @@ function applyAniso(){let n=0,sk=0;
 const DPRS=[3,2,1.5,1.25,1];let qStep=0,fpsAcc=0,fpsN=0,qCool=0;   // 画质增强轮:梯子顶上加一档 3×,低端机路径不变
 function applyQ(){renderer.setPixelRatio(Math.min(devicePixelRatio||1,DPRS[qStep]));}
 let lastFPS=0;
-function qualityTick(dt){if(!qAuto)return;fpsAcc+=dt;fpsN++;qCool-=dt;
+function qualityTick(dt){if(!qAuto)return;
+ if(phase!=='play')return;   /* 只在游玩相位采样(#295):菜单/暂停的待机帧率不代表游玩负载 —— rAF 被遮挡/
+   系统压频/293-294 节流都会把采样拉低,误降档后 qCool=14s 才爬得回来,画质白白受损;实测菜单遮挡下
+   lastFPS=20 已触发误降(qStep 0→1)。暂停/菜单不进采样,进 play 后从干净窗口重新累计 */
+ fpsAcc+=dt;fpsN++;qCool-=dt;
  if(fpsAcc>=2){const fps=fpsN/fpsAcc;fpsAcc=0;fpsN=0;lastFPS=fps;
   if(qCool<=0){
    if(fps<42&&qStep<DPRS.length-1){qStep++;applyQ();qCool=8;}
