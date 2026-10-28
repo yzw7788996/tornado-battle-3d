@@ -2354,7 +2354,7 @@ function drawFootmap(){const c=$('footmap');if(!c)return;const x=c.getContext('2
  x.clearRect(0,0,264,264);paintFoot(x);}
 
 /* ---------- 游戏流程 ---------- */
-let phase='menu',menuTick=0,score=0,eaten=0,level=1,startT=0,elapsed=0,time=0,last=0,
+let phase='menu',menuTick=0,pauseTick=0,score=0,eaten=0,level=1,startT=0,elapsed=0,time=0,last=0,
  shake=0,hitstop=0,funnelPulse=0,hintT=0,startBest=0,vx=0,vz=0,comboN=0,comboT=0,fovKick=0,runCombo=0,
  mode='campaign',rushT=0,rushEnded=false;
 let best=0;try{best=+localStorage.getItem('tornadoBest')||0}catch(e){}
@@ -3164,7 +3164,11 @@ const WSTEP=.05;
 function frame(ts){requestAnimationFrame(frame);syncInert();
  const now=ts/1000,real=now-(last||now);last=now;      // 真帧时:钳掉的那截要留给画质统计,不能骗它
  const raw=Math.min(.2,real);
- if(phase==='paused'){audioFrame(raw);renderer.render(scene,camera);return;} // 冻结模拟,但风声增益仍要归零
+ if(phase==='paused'){audioFrame(raw);   // 冻结模拟,但风声增益仍要归零(每帧都要跑)
+  /* 暂停渲染节流(#294):暂停画面是完全静态的(120 轮设计:模拟冻结),此前却每帧全速重画同一帧;
+     每 4 帧出一次图(15fps)对静态画面零感知差,前台读卡/切后台自动暂停两种高频态的 GPU 再省 3/4。
+     audioFrame 不节流(增益平滑),DOM 悬浮卡不依赖 canvas 重绘 */
+  if(pauseTick++%4===0)renderer.render(scene,camera);return;}
  let dt=raw;
  if(hitstop>0){hitstop-=raw;dt=raw*(reduceMotion?.6:.14);} // 顿帧只压模拟步长;用时仍走墙钟
  time+=dt;
