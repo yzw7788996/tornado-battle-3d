@@ -2691,11 +2691,15 @@ renderBests();
 statline();renderAchv();renderHistory();
 initHowto();setPick(MODES[CFG.mode]?CFG.mode:'campaign'); // 上次玩哪个模式就预选哪个;野值(旧档/手改的)回落闯关
 for(const c of document.querySelectorAll('#modes .chip'))
- c.onclick=()=>{setPick(c.dataset.k);blip(520,660,.06,.05,'sine');};
+ c.onclick=()=>{setPick(c.dataset.k);blip(520,660,.06,.05,'sine');};   /* 芯片自带点选音,全局点按音(#357)会叠加 —— 下方全局监听里排除 .chip */
 renderCont();
 if(navigator.serviceWorker&&(location.protocol==='https:'||location.hostname==='localhost')){
  // 本文件是首帧画完才被注入的,那时 load 可能早已发生 —— 只等事件会把离线安装悄悄丢掉
  const reg=()=>navigator.serviceWorker.register('sw.js').catch(()=>{});
+ /* UI 点按音(#357):世界音效成体系,按钮却全哑 —— 触觉层缺一环。捕获全局 button 点击给一记
+    轻微短促的高频三角波(0.05 音量,只提示不抢戏);blip 自带 muted/AC 守卫,静音即无声 */
+ document.addEventListener('click',e=>{
+  if(e.target.closest&&e.target.closest('button')&&!e.target.closest('.chip'))blip(880,660,.08,.05,'triangle');},true);
  /* SW 更新就绪提示(#354,298 SWR 的配套):新 SW 装好接管(controllerchange)时,当前页面还是旧版 ——
     提示一句让"下次打开生效"可感知,不然玩家永远不知道有更新在等。首访的首次安装不算"更新":
     页面起于无控制器(controller 为空)时的第一次 change 是初次安装,静默跳过 */
