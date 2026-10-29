@@ -2680,6 +2680,14 @@ renderCont();
 if(navigator.serviceWorker&&(location.protocol==='https:'||location.hostname==='localhost')){
  // 本文件是首帧画完才被注入的,那时 load 可能早已发生 —— 只等事件会把离线安装悄悄丢掉
  const reg=()=>navigator.serviceWorker.register('sw.js').catch(()=>{});
+ /* SW 更新就绪提示(#354,298 SWR 的配套):新 SW 装好接管(controllerchange)时,当前页面还是旧版 ——
+    提示一句让"下次打开生效"可感知,不然玩家永远不知道有更新在等。首访的首次安装不算"更新":
+    页面起于无控制器(controller 为空)时的第一次 change 是初次安装,静默跳过 */
+ if(navigator.serviceWorker){
+  let firstInstall=!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+   if(firstInstall){firstInstall=false;return;}
+   showHint('✨ 新版本已就绪,下次打开生效',3200);});}
  if(document.readyState==='complete')reg();else addEventListener('load',reg);}
 camera.position.set(1080,300,3120);
 requestAnimationFrame(frame);
