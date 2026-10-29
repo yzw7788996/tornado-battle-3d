@@ -2441,7 +2441,11 @@ function renderAchv(){const el=$('achv');
 function checkAchv(){let newly=null;
  for(const a of ACHV){if(!stats.achv[a.id]&&a.test(stats)){
   stats.achv[a.id]=Date.now();newly=a;}}   /* 存解锁时刻(216):NEW 角标要分"刚拿到"和"早就有了";旧档的 true 参与减法得 NaN → 恒非 NEW,天然兼容 */
- if(newly){saveStats();renderAchv();showHint(`🏅 成就解锁:${newly.name}!`,2600);}}
+ if(newly){saveStats();renderAchv();showHint(`🏅 成就解锁:${newly.name}!`,2600);
+  /* 解锁琶音(#359):升级有 chime、通关有 fanfare(四音),成就这个收集里程碑却只有一条小 toast ——
+     补专属三音上行 660/880/1320(与两者都不撞频),解锁瞬间听得见"又进账一枚" */
+  [660,880,1320].forEach((f,i)=>setTimeout(()=>blip(f,f*1.02,.15,.09,'triangle'),i*90));
+  vib(30);}}
 /* 结算卡下一目标(#236):结算时刻同时是下一局的起点 —— 按成就墙现成的 prog/need 管线挑剩余比例
    最小的一枚(件/次/分量纲不同,比例才是"最近"),给出具体差值;全解锁的玩家给全收集致意,不出空行 */
 function nextGoalLine(){const lock=ACHV.filter(a=>!stats.achv[a.id]);
