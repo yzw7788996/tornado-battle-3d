@@ -3052,7 +3052,11 @@ function update(dt){elapsed=performance.now()/1000-startT;const p=Math.min(1,sco
   vx=dx/d*v;vz=dz/d*v;T.x+=vx*dt;T.z+=vz*dt;}
  shake*=Math.exp(-dt*3.4);if(shake<1e-4)shake=0; // 指数衰减:线性尾巴会让小撞击"拖一下"
  hintT-=dt;lockHintT-=dt;updateLockRings();hudChrome(dt);tutTick(dt);
- comboT-=dt;saveCool-=dt;if(comboT<=0)comboN=0;showCombo();
+ comboT-=dt;saveCool-=dt;
+ if(comboT<=0&&comboN>=10){blip(360,140,.3,.08,'sawtooth');vib(20);}   /* 断连反馈(#358):×10 以上
+  的连击断掉时来一记下行短音+轻震 —— 连时有弹跳有里程碑音,断却无声,高连击的失落没有出口;×10 门槛
+  避免小连击频繁打扰 */
+ if(comboT<=0)comboN=0;showCombo();
  $('combobar').style.transform='scaleX('+Math.max(0,comboT/COMBO_T).toFixed(3)+')';
  rushGoal();
  if(saveCool<=0&&phase==='play'&&score>0&&mode==='campaign'){saveRun();saveCool=4;}
