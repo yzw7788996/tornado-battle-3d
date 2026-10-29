@@ -1952,7 +1952,8 @@ function renderBests(){
  const now=new Date(),mid=new Date(now);mid.setHours(24,0,0,0);
  const mins=Math.max(1,Math.round((mid-now)/6e4));
  const cd=(mins>=60?Math.floor(mins/60)+' 小时':mins+' 分钟')+'后刷新';
- const bd=$('bestDaily');if(bd)bd.textContent='📅 今日 '+(di?di.best+' 分':'未玩')+(sk>1?' · 连'+sk+'天':'')+' · '+cd;}   /* 精修#208:每日状态常驻菜单,回访先看这格 */
+ const pv=(stats.dailyPrev&&stats.dailyPrev.date===yesterdaySeed())?' · 昨日 '+stats.dailyPrev.best+' 分':'';   /* #353:隔天自动失效 */
+ const bd=$('bestDaily');if(bd)bd.textContent='📅 今日 '+(di?di.best+' 分':'未玩')+(sk>1?' · 连'+sk+'天':'')+pv+' · '+cd;}   /* 精修#208:每日状态常驻菜单,回访先看这格 */
 function saveBest(){try{localStorage.setItem('tornadoBest',best)}catch(e){}renderBests();}
 /* ---------- 存档续玩 ---------- */
 const SKEY='tornadoRun';
@@ -2235,6 +2236,10 @@ function buildDailyText(){const sk=streakNow();
 function startGame(m,night,snow){clearRun();mode=m||'campaign';isNight=!!night;isSnow=!!snow;
  if(mode==='daily'){const di=dailyInfo();
   if(di&&di.played){showHint('📅 今天的挑战已完成(最佳 '+di.best+' 分),明天刷新!',3200);return;}
+  /* 昨日档(#353):旧日的成绩在下一次开每日时被覆盖就永久丢失 —— 连击断了,昨天的高度也该记得。
+     只在真正换日后的第一张票转移;dailyPrev 的"昨日"身份在渲染时按 yesterdaySeed 校验,隔多天自动失效 */
+  if(stats.daily&&stats.daily.played&&stats.daily.date!==dateSeed())
+   stats.dailyPrev={date:stats.daily.date,best:stats.daily.best};
   stats.daily={date:dateSeed(),best:0,played:1};
   /* 打卡连击(精修#208):今天首次开每日才算一天;昨天打过 → 连击+1,否则从 1 重新数 */
   const st=stats.streak||{last:0,n:0};
