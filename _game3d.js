@@ -1355,6 +1355,20 @@ function updateBolt(dt,stormK){boltNext-=dt*(1+stormLevel*1.2);
 /* 对手名字池(#239):hole.io/agar.io 都给 bot 起名 —— 红点从"对手"变"涡小卷",药丸/被吞/抢食/
    卷土重来全部带上名字,竞争关系从读数变成恩怨;每局 reset 重抽,重开就换个新冤家 */
 const RIVNAMES=['涡小卷','黑风怪','龙叔','旋旋','卷王','风暴阿飘','小旋风','吸尘器','追风少年','风居士'];
+/* 对手个性语气(#356,239 命名的延伸):被咬/被抢从统一官腔变成带名字的挑衅 —— 名字与性格用同一下标绑定,
+   每局抽名即抽性格,恩怨有脸有嘴。咬是主事件(可控触发),抢食尾随同源 */
+const RIVTALK=[
+ '涡小卷:嘿嘿,分数借我用用~',        // 轻佻
+ '黑风怪:嘶——连你一起卷!',           // 凶悍
+ '龙叔:年轻人,姜还是老的辣。',        // 老练
+ '旋旋:转圈圈~你的分分归我啦!',       // 天然
+ '卷王:这地盘,卷王的!',               // 霸道
+ '风暴阿飘:呜……顺手带走一点……',     // 阴柔
+ '小旋风:嗖!先到先得!',               // 敏捷
+ '吸尘器:嗡——吸力全开!',             // 机械
+ '追风少年:跑得快才有饭吃!',          // 少年
+ '风居士:风过无痕,分过不留。']        // 世外
+function rivTalk(){return RIVTALK[RIVNAMES.indexOf(RV.name)]||RIVTALK[0];}
 const RV={x:2400,z:600,r:20,score:0,lvl:1,spd:88,tgt:null,retarget:0,name:RIVNAMES[0]};
 let rivalAhead=false;
 const rival=new THREE.Group();
@@ -1413,7 +1427,7 @@ function rivalUpdate(dt){if(phase==='menu')return;
  if(RV.lvl>=level+2&&RV.biteCd<=0&&Math.hypot(RV.x-T.x,RV.z-T.z)<RV.r*2+T.r){
   if(score>0){const real=Math.min(score,Math.max(1,Math.round(score*.25)));   /* 有分才咬得出转移;0 分只吃击退 */
    score-=real;RV.score+=real;stats.bitten=(stats.bitten||0)+1;saveStats();
-   banner('被对手卷走 '+real+' 分!');vibTier(7);shake=Math.min(1,shake+.6);fovKick=6;
+   banner(rivTalk()+'(−'+real+' 分)');vibTier(7);shake=Math.min(1,shake+.6);fovKick=6;
    blip(600,120,.4,.12,'sawtooth');}
   else banner('被对手撞飞了!');
   const dx=T.x-RV.x,dz=T.z-RV.z,dd=Math.hypot(dx,dz)||1;   /* 击退:往远离对手的方向弹一程 */
@@ -1446,7 +1460,7 @@ function rivalUpdate(dt){if(phase==='menu')return;
    if(o.k.indexOf('ped')!==0&&!o.axis)destroyedIds.push(o.id);
    RV.score+=o.pts;
    if(Math.hypot(o.x-T.x,o.z-T.z)<T.r*2.2+o.r&&hintT<=0){
-    showHint(RV.name+'抢走了你的猎物!',2000);hintT=2;}}}
+    showHint(rivTalk()+'(猎物被抢)',2000);hintT=2;}}}
  // 外观
  rival.visible=true;
  rival.position.set(RV.x,0,RV.z);
