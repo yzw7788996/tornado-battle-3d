@@ -2649,6 +2649,8 @@ function consume(o){score+=o.pts;eaten++;stats.eaten++;kindStats[o.k]=(kindStats
  if(o.k==='landmark'&&mode==='campaign')win();
  if(o.k==='landmark'&&mode==='endless'){o.state='idle';o.t=0;}}
 function endRush(){phase='win';pushHistory(runLabel(),score,120-rushT);
+ fanfare();vibTier(7);   /* 结算音乐反馈(#355):战役通关早有 fanfare,限时/每日的结算却一直是哑的 ——
+   时间到的这一刻同样是高潮,四音上行+三段重震;tier 7 而非 8,电视塔的连震轰鸣保持独占 */
  const dc=$('dailyCopy');if(dc)dc.style.display=mode==='daily'?'block':'none';   /* 每日专属(#233):战役/限时结算不亮 */
  const bgUrl2=snapshotCity();setWinBg(bgUrl2);lastRuinUrl=bgUrl2;
  const pre2=new Image();pre2.src=bgUrl2;lastRuinImg=pre2;
