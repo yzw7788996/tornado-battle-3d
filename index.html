@@ -1976,6 +1976,19 @@ const RIVLOSE=[
  '追风少年:这次算你快!',
  '风居士:风停了,就此别过。'];
 function rivLose(){return RIVLOSE[RIVNAMES.indexOf(RV.name)]||RIVLOSE[0];}
+/* 回归台词(#368,人格三件套收齐:挑衅/败北/回归):15 秒异地重生的那声提示也要有性格 */
+const RIVBACK=[
+ '涡小卷又卷回来啦!',
+ '黑风怪携风带雨杀回来了!',
+ '龙叔泡好茶,又回来了。',
+ '旋旋转着圈又回来啦~',
+ '卷王重登王座!',
+ '风暴阿飘幽幽地飘了回来……',
+ '小旋风嗖地又出现了!',
+ '吸尘器换了新尘盒,回归!',
+ '追风少年追上来了!',
+ '风居士踏风而归。'];
+function rivBack(){return RIVBACK[RIVNAMES.indexOf(RV.name)]||RIVBACK[0];}
 const RV={x:2400,z:600,r:20,score:0,lvl:1,spd:88,tgt:null,retarget:0,name:RIVNAMES[0]};
 let rivalAhead=false;
 const rival=new THREE.Group();
@@ -2005,7 +2018,7 @@ function rivalUpdate(dt){if(phase==='menu')return;
     而我们的对手此前碰不得,支配感爽点缺失):吃掉的一方按对手积分拿大额奖励,对手 15 秒后异地零分重生。 */
  if(RV.dead>0){RV.dead-=dt;
   if(RV.dead<=0){RV.x=rnd(200,WORLD-200);RV.z=rnd(200,600);RV.tgt=null;RV.dead=0;rival.visible=true;
-   if(phase==='play')showHint(RV.name+'卷土重来了!',2000);}
+   if(phase==='play')showHint(rivBack(),2000);}
   else{ /* 倒计时期间药丸不能停在"被吞!"静态文案:威胁何时回来要有预期,与重生那声"卷土重来了!"首尾呼应;
           按秒写 textContent(帧级重写同值白费布局,分数栏 2399 同款节流) */
    if(RV.pill){const t='🔴 '+RV.name+' '+Math.ceil(RV.dead)+'s 后回归';
