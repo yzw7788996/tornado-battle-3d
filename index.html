@@ -1962,6 +1962,20 @@ const RIVTALK=[
  '追风少年:跑得快才有饭吃!',          // 少年
  '风居士:风过无痕,分过不留。']        // 世外
 function rivTalk(){return RIVTALK[RIVNAMES.indexOf(RV.name)]||RIVTALK[0];}
+/* 败北台词(#367,356 的收场):被吞时对手认输也要认得有性格 —— 与挑衅同下标绑定;
+   横幅格式「败北台词(+N)」,增益数字保留 */
+const RIVLOSE=[
+ '涡小卷:哎呀,翻车了……下次翻你!',
+ '黑风怪:嘶——记住这口气!',
+ '龙叔:后生可畏,后生可畏。',
+ '旋旋:呜哇,头晕晕……',
+ '卷王:这地盘……暂时借你!',
+ '风暴阿飘:呜……我飘回来了再算账……',
+ '小旋风:嗖——溜了溜了!',
+ '吸尘器:嗡……尘盒满了,撤退!',
+ '追风少年:这次算你快!',
+ '风居士:风停了,就此别过。'];
+function rivLose(){return RIVLOSE[RIVNAMES.indexOf(RV.name)]||RIVLOSE[0];}
 const RV={x:2400,z:600,r:20,score:0,lvl:1,spd:88,tgt:null,retarget:0,name:RIVNAMES[0]};
 let rivalAhead=false;
 const rival=new THREE.Group();
@@ -2005,7 +2019,7 @@ function rivalUpdate(dt){if(phase==='menu')return;
   score+=gain;stats.rivalEats=(stats.rivalEats||0)+1;RV.runEat=(RV.runEat||0)+1;
   if(stats.bitten)stats.revenge=1;   /* 复仇者(精修#213):先被咬(211)再吞回(205)才算 —— 单纯欺负小对手不算复仇 */
   saveStats();checkAchv();
-  banner('吞噬对手!+'+gain);vibTier(8);shake=Math.min(1,shake+.5);fovKick=8;
+  banner(rivLose()+'(+'+gain+')');vibTier(8);shake=Math.min(1,shake+.5);fovKick=8;
   if(!reduceMotion)hitstop=.25;   /* 顿帧(#229):吃大件已有 .03~.22 按相对大小分级的顿帧,吞对手是全场
    最重的一刻却没有 —— 重量分级断层;补 .25 顶格(略超物件上限,对手比任何物件都重),reduceMotion 免同步同 1978 */
   burstCols('metal',[0xff5a4a,0xffd75e],10);blip(180,900,.35,.12,'sawtooth');crowdGasp(.14);   /* 吞人那一刻全城惊呼最响(#234) */
