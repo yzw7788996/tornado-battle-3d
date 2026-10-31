@@ -2174,6 +2174,10 @@ function genShareCard(bgUrl){
  g.fillStyle='rgba(255,255,255,.85)';g.font='600 26px system-ui';
  // 战报卡上原本没有模式:夜城/雪原/限时那一局的卡与闯关长得一模一样,分享出去之后连自己都分不出
  // 这是哪条路(和第 23 轮"历史里夜城被记成闯关"同一族)
+ /* 遭遇行(#364):恩怨账进分享卡 —— 插在分隔线(y0+225)与模式行(y0+262)之间,不挤下方摧毁列表;
+    零遭遇(没碰到对手的局)自动不占位,布局两态都自洽 */
+ {const e=RV.runEat||0,b=RV.runBite||0,st=RV.runSteal||0;
+  if(e||b||st)g.fillText('⚔️ vs '+RV.name+':吞'+e+' 被咬'+b+' 被抢'+st,300,y0+244);}
  g.fillText(runLabel()+' · 吞噬 '+eaten+' 件 · 用时 '+fmt(elapsed),300,y0+262);
  const top=Object.entries(kindStats).sort((a,b)=>b[1]-a[1]).slice(0,3);
  g.font='600 24px system-ui';g.fillStyle='rgba(255,215,94,.9)';
