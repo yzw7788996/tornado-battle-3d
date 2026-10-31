@@ -2490,7 +2490,9 @@ $('sReset').onclick=()=>{CFG=Object.assign({},CFGD);saveCfg();applyCfg();setPick
 $('sClose').onclick=closeSettings;
 $('cfg').onclick=openSettings;$('pcfg').onclick=openSettings;
 addEventListener('keydown',e=>{const k=e.key.toLowerCase();
- if(k==='escape'&&!$('settings').classList.contains('hidden')){closeSettings();return;}
+ // #352:设置面板在场时按键归面板。以前只挡了 Esc,按 P 会把暂停中的游戏在面板后面恢复
+ //(三视口实测:phase paused→play、暂停卡消失,而面板还开着)。面板在场时只认 Esc=关闭,其余按键不往下传。
+ if(!$('settings').classList.contains('hidden')){if(k==='escape')closeSettings();return;}
  if(k==='escape'||k==='p'){e.preventDefault();togglePause();}});
 $('snd').onclick=()=>{muted=!muted;sndGlyph();
  try{localStorage.setItem('tornadoMuted',muted?'1':'0')}catch(e){}};

@@ -132,6 +132,10 @@
     border:1px solid rgba(255,255,255,.15);
     box-shadow:0 34px 90px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.14);
     backdrop-filter:blur(20px) saturate(1.25);-webkit-backdrop-filter:blur(20px) saturate(1.25)}
+  /* 第 124 轮:主线加「📅 今日」徽章后,菜单卡在 390×844 下内容底(=foot 下沿 781)越过可视下沿 774 七像素;
+     卡片上限 92→94vh 只给菜单,把最后一行留在首屏(桌面 1280×800 内容 728 / 可视 734,本来就没被裁)。
+     其它浮层的 92vh 不动。 */
+  #menu .card{max-height:94vh}
   .card::before{content:'';position:absolute;inset:0;border-radius:30px;pointer-events:none;
     background:linear-gradient(115deg,rgba(255,255,255,.09),transparent 32%,transparent 68%,rgba(255,255,255,.05))}
   /* 战报卡浮层:图必须给按钮让位。实测 844×390 里 img 按自然比例占满 493px 高,
@@ -166,6 +170,9 @@
     .badge{margin:1px 0}
     .mini{margin-top:4px}
   }
+  /* 第 124 轮:横屏手机(高 ≤500px)开局时「📅 今日」整行换行,把 #moreBtn 与版本行挤到折叠线下 44px;
+     这一档把每日状态行让掉(事后可查、不是开局必需),竖屏/桌面不动。 */
+  @media (max-height:500px){ #menu #bestDaily{display:none} }
   .bigbtn{display:block;width:100%;border:none;border-radius:18px;padding:15px 0;margin:7px 0;cursor:pointer;
     font-size:19px;font-weight:900;letter-spacing:6px;color:#4a2b00;position:relative;overflow:hidden;
     background:linear-gradient(180deg,#ffe27a,#ffa23c);
