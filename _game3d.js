@@ -2096,6 +2096,8 @@ function endRush(){phase='win';pushHistory(runLabel(),score,120-rushT);
   '<div class="st"><b>'+eaten+'</b><span>吞噬物件</span></div>'+
   '<div class="st"><b>'+bestCell+'</b><span>'+(mode==='daily'?'今日最佳':'挑战最佳')+'</span></div>'+kindLine()+nextGoalLine()+lastRunLine();
  $('rec').style.display=rec?'block':'none';
+ if(rec)setTimeout(()=>blip(1568,1568,.35,.1,'triangle'),950);   /* 破纪录高音(#362):fanfare(0-910ms)之后
+  一记清亮尾音 —— ★新纪录★ 此前只有文字没有专属声音,留存关键时刻值得单独一响;1568 全库唯一不撞频 */
  lastIsRecord=rec;
  $('timerbox').style.display='none';
  $('rushgoal').style.display='none'; // 结算屏不再报目标:update() 到 phase='win' 就不跑了,谁写下这个状态谁负责收
@@ -2211,6 +2213,7 @@ function win(){phase='win';stats.wins++;if(isNight)stats.nightWins=(stats.nightW
    '<div class="st"><b>'+eaten+'</b><span>吞噬物件</span></div>'+
    '<div class="st"><b>'+score+'</b><span>最终得分</span></div>'+kindLine()+nextGoalLine()+lastRunLine();
   $('rec').style.display=rec?'block':'none';
+  if(rec)setTimeout(()=>blip(1568,1568,.35,.1,'triangle'),950);   /* 破纪录高音(#362),同上 */
   lastIsRecord=rec;
   setWinBg(bgUrl);lastRuinUrl=bgUrl;
   const pre=new Image();pre.src=bgUrl;lastRuinImg=pre; // 预解码,分享时同步可绘
