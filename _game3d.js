@@ -2206,7 +2206,9 @@ function genShareCard(bgUrl){
     零遭遇(没碰到对手的局)自动不占位,布局两态都自洽 */
  {const e=RV.runEat||0,b=RV.runBite||0,st=RV.runSteal||0;
   if(e||b||st)g.fillText('⚔️ vs '+RV.name+':吞'+e+' 被咬'+b+' 被抢'+st,300,y0+244);}
- g.fillText(runLabel()+' · 吞噬 '+eaten+' 件 · 用时 '+fmt(elapsed),300,y0+262);
+ // 第 125 轮:模式行原在 y0+262,与上方 26px 的遭遇行基线只差 18px ⇒ 字身重叠 7px(verify26 E2 五模式全红);
+ // 下移到 y0+272(基线差 28),与下方摧毁列表第一项(y0+310)仍有 38px。
+ g.fillText(runLabel()+' · 吞噬 '+eaten+' 件 · 用时 '+fmt(elapsed),300,y0+272);
  const top=Object.entries(kindStats).sort((a,b)=>b[1]-a[1]).slice(0,3);
  g.font='600 24px system-ui';g.fillStyle='rgba(255,215,94,.9)';
  top.forEach(([k,n],i)=>{g.fillText((KINDNAMES[k]||k)+' ×'+n,300,y0+310+i*38);});
