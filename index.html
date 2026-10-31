@@ -199,6 +199,9 @@
   #settings .setbody.scrolly{box-shadow:inset 0 -22px 16px -16px rgba(0,0,0,.8)}
   #settings .cardfoot{flex:0 0 auto;padding-top:10px;
     background:linear-gradient(rgba(11,17,13,0),rgba(11,17,13,.96) 26%)}
+  /* 第 125 轮:主线给结算卡加了 150px 的 #footmap(足迹图),844×390 下卡内容 451/可视 357、
+     三颗行动跑到卡外 26px;360×568 下第三颗也出界。矮屏(≤620px)让掉这张副图,行动留在首屏。 */
+  @media (max-height:620px){ #win #footmap{display:none!important} }   /* 内联 style 里写着 display:block,矮屏那一条要 !important 才盖得住 */
   @media (max-height:470px){
     #win .btnrow{display:flex;gap:6px}
     #win .btnrow .bigbtn{flex:1 1 0;min-width:0;font-size:13.5px;letter-spacing:0;padding:12px 2px;white-space:nowrap}
@@ -2806,7 +2809,9 @@ function genShareCard(bgUrl){
     零遭遇(没碰到对手的局)自动不占位,布局两态都自洽 */
  {const e=RV.runEat||0,b=RV.runBite||0,st=RV.runSteal||0;
   if(e||b||st)g.fillText('⚔️ vs '+RV.name+':吞'+e+' 被咬'+b+' 被抢'+st,300,y0+244);}
- g.fillText(runLabel()+' · 吞噬 '+eaten+' 件 · 用时 '+fmt(elapsed),300,y0+262);
+ // 第 125 轮:模式行原在 y0+262,与上方 26px 的遭遇行基线只差 18px ⇒ 字身重叠 7px(verify26 E2 五模式全红);
+ // 下移到 y0+272(基线差 28),与下方摧毁列表第一项(y0+310)仍有 38px。
+ g.fillText(runLabel()+' · 吞噬 '+eaten+' 件 · 用时 '+fmt(elapsed),300,y0+272);
  const top=Object.entries(kindStats).sort((a,b)=>b[1]-a[1]).slice(0,3);
  g.font='600 24px system-ui';g.fillStyle='rgba(255,215,94,.9)';
  top.forEach(([k,n],i)=>{g.fillText((KINDNAMES[k]||k)+' ×'+n,300,y0+310+i*38);});
