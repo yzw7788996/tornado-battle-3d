@@ -3098,6 +3098,8 @@ addEventListener('keydown',e=>{const k=e.key.toLowerCase();
  // #352:设置面板在场时按键归面板。以前只挡了 Esc,按 P 会把暂停中的游戏在面板后面恢复
  //(三视口实测:phase paused→play、暂停卡消失,而面板还开着)。面板在场时只认 Esc=关闭,其余按键不往下传。
  if(!$('settings').classList.contains('hidden')){if(k==='escape')closeSettings();return;}
+ // #353:战报浮层是唯一没有 Esc 出口的浮层(设置/暂停都有)。它开着时 Esc 归它,不让按键漏给已经结束的对局。
+ if(!$('shareLayer').classList.contains('hidden')){if(k==='escape')$('shareLayer').classList.add('hidden');return;}
  if(k==='escape'||k==='p'){e.preventDefault();togglePause();}});
 $('snd').onclick=()=>{muted=!muted;sndGlyph();
  try{localStorage.setItem('tornadoMuted',muted?'1':'0')}catch(e){}};
