@@ -2293,7 +2293,8 @@ function showCombo(){const el=$('combo');
  const cn=$('combon');cn.textContent=comboN>99?'99+':comboN;
  /* 每跳一格弹一下(#238):纯文本替换读不出"正在连"的节奏;分数栏同款 remove→reflow→add 重启动画 */
  cn.classList.remove('bump');void cn.offsetWidth;cn.classList.add('bump');
- if(comboN===5||comboN===10||comboN===25||comboN===50){
+ if(comboN===5||comboN===10||comboN===25||comboN===50||comboN===100){   /* #366:补 ×100 ——
+  DEVLOG 自证 ×222 的局存在,50 之后全是死寂;音高公式 760+comboN*6 在 100 时自然到 1360Hz 更亮 */
   banner('连击 ×'+comboN+'!');blip(760+comboN*6,1240,.2,.11,'triangle');vib(30);}}
 
 /* ---------- 小地图 ---------- */
