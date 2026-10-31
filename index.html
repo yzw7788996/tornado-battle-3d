@@ -600,7 +600,7 @@ const PHOTO={"asphalt_diff": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD
 const $=id=>document.getElementById(id);
 function rnd(a,b){return a+Math.random()*(b-a);}
 /* ---------- 玩家设置(存 tornadoCfg,面板在第 5B 轮接入) ---------- */
-const VER='3.2.0';   // 版本号只有一个来源:菜单脚注和战报卡都从这里取
+const VER='3.3.0';   // 版本号只有一个来源:菜单脚注和战报卡都从这里取
 const CFGD={master:90,sfx:85,amb:70,quality:'auto',vib:true,reduce:'auto',cb:false,mode:'campaign'};
 let CFG=Object.assign({},CFGD);
 try{const s=JSON.parse(localStorage.getItem('tornadoCfg'));if(s)CFG=Object.assign(CFG,s);}catch(e){}

@@ -1,4 +1,4 @@
-const CACHE='tornado-3.2.0';   // 缓存键由 build.py 从 _game3d.js 的 VER 盖章(精修#136),手改会被下次构建覆盖;旧键由 activate 整删,离线副本不会停在上一版
+const CACHE='tornado-3.3.0';   // 缓存键由 build.py 从 _game3d.js 的 VER 盖章(精修#136),手改会被下次构建覆盖;旧键由 activate 整删,离线副本不会停在上一版
 const PAGE='./index.html';   // 页面只有一个固定缓存键:玩家可能从 / 、/index.html 或子路径进来
 const CLASSIC='./classic.html';   // 精修#138:classic 也进离线包 —— 旧单键设计下断网访问 classic 会被 3D 版顶替(r134 实测入档),怀旧版离线不可玩;两个页面各有各的键
 self.addEventListener('install',e=>{
