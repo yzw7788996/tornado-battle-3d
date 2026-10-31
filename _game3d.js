@@ -1409,7 +1409,7 @@ function rivalUpdate(dt){if(phase==='menu')return;
  /* 吞噬判定:显著更大才吃得动(高 2 级),近身即吞 —— 单向支配;反向(对手吃玩家)涉及败局设计,挂账候选 */
  if(level>=RV.lvl+2&&RV.dead<=0&&Math.hypot(RV.x-T.x,RV.z-T.z)<T.r*2+RV.r){
   const gain=100+Math.round(RV.score*.4);
-  score+=gain;stats.rivalEats=(stats.rivalEats||0)+1;
+  score+=gain;stats.rivalEats=(stats.rivalEats||0)+1;RV.runEat=(RV.runEat||0)+1;
   if(stats.bitten)stats.revenge=1;   /* 复仇者(精修#213):先被咬(211)再吞回(205)才算 —— 单纯欺负小对手不算复仇 */
   saveStats();checkAchv();
   banner('吞噬对手!+'+gain);vibTier(8);shake=Math.min(1,shake+.5);fovKick=8;
@@ -1426,7 +1426,7 @@ function rivalUpdate(dt){if(phase==='menu')return;
  RV.biteCd=(RV.biteCd||0)-dt;
  if(RV.lvl>=level+2&&RV.biteCd<=0&&Math.hypot(RV.x-T.x,RV.z-T.z)<RV.r*2+T.r){
   if(score>0){const real=Math.min(score,Math.max(1,Math.round(score*.25)));   /* 有分才咬得出转移;0 分只吃击退 */
-   score-=real;RV.score+=real;stats.bitten=(stats.bitten||0)+1;saveStats();
+   score-=real;RV.score+=real;stats.bitten=(stats.bitten||0)+1;RV.runBite=(RV.runBite||0)+1;saveStats();
    banner(rivTalk()+'(−'+real+' 分)');vibTier(7);shake=Math.min(1,shake+.6);fovKick=6;
    blip(600,120,.4,.12,'sawtooth');}
   else banner('被对手撞飞了!');
@@ -1459,8 +1459,9 @@ function rivalUpdate(dt){if(phase==='menu')return;
    o.state='gone';o.node.visible=false;
    if(o.k.indexOf('ped')!==0&&!o.axis)destroyedIds.push(o.id);
    RV.score+=o.pts;
-   if(Math.hypot(o.x-T.x,o.z-T.z)<T.r*2.2+o.r&&hintT<=0){
-    showHint(rivTalk()+'(猎物被抢)',2000);hintT=2;}}}
+   if(Math.hypot(o.x-T.x,o.z-T.z)<T.r*2.2+o.r){
+    RV.runSteal=(RV.runSteal||0)+1;   /* 计数不跟提示节流(#363):被抢每次都记,提示仍由 hintT 管 */
+    if(hintT<=0){showHint(rivTalk()+'(猎物被抢)',2000);hintT=2;}}}}
  // 外观
  rival.visible=true;
  rival.position.set(RV.x,0,RV.z);
@@ -1866,6 +1867,11 @@ function nextGoalLine(){const lock=ACHV.filter(a=>!stats.achv[a.id]);
   +(best.need-best.prog(stats))+' '+best.unit+' → '+best.icon+best.name+'</div>';}
 /* 局间对比(#240):「比上局 ↑N」—— 结算屏的进步感钩子(调研:局末 personal-best 对比是
    one-more-run 的标准件);只比同模式上一次(history 按标签找,跨模式不比),打平不显示 */
+/* 本局遭遇行(#363):与这位冤家的恩怨账 —— 吞N/被咬N/被抢N;零遭遇不出行(没碰到对手的局不占位) */
+function rivLine(){const e=RV.runEat||0,b=RV.runBite||0,st=RV.runSteal||0;
+ if(!e&&!b&&!st)return '';
+ return '<div style="width:100%;font-size:12px;opacity:.85;margin:4px 0 0">⚔️ vs '+RV.name
+  +':吞 '+e+' · 被咬 '+b+' · 被抢 '+st+'</div>';}
 function lastRunLine(){const h=stats.history||[];if(h.length<2)return '';
  const prev=h.find((x,i)=>i>0&&x.m===h[0].m);
  if(!prev||prev.s===score)return '';
@@ -2094,7 +2100,7 @@ function endRush(){phase='win';pushHistory(runLabel(),score,120-rushT);
  $('winTitle').textContent='⏱ 时间到!';
  $('stats').innerHTML='<div class="st"><b>'+score+'</b><span>本局得分</span></div>'+
   '<div class="st"><b>'+eaten+'</b><span>吞噬物件</span></div>'+
-  '<div class="st"><b>'+bestCell+'</b><span>'+(mode==='daily'?'今日最佳':'挑战最佳')+'</span></div>'+kindLine()+nextGoalLine()+lastRunLine();
+  '<div class="st"><b>'+bestCell+'</b><span>'+(mode==='daily'?'今日最佳':'挑战最佳')+'</span></div>'+kindLine()+rivLine()+nextGoalLine()+lastRunLine();
  $('rec').style.display=rec?'block':'none';
  if(rec)setTimeout(()=>blip(1568,1568,.35,.1,'triangle'),950);   /* 破纪录高音(#362):fanfare(0-910ms)之后
   一记清亮尾音 —— ★新纪录★ 此前只有文字没有专属声音,留存关键时刻值得单独一响;1568 全库唯一不撞频 */
@@ -2211,7 +2217,7 @@ function win(){phase='win';stats.wins++;if(isNight)stats.nightWins=(stats.nightW
  setTimeout(()=>{if(phase!=='win')return;
   $('stats').innerHTML='<div class="st"><b>'+fmt(elapsed)+'</b><span>总用时</span></div>'+
    '<div class="st"><b>'+eaten+'</b><span>吞噬物件</span></div>'+
-   '<div class="st"><b>'+score+'</b><span>最终得分</span></div>'+kindLine()+nextGoalLine()+lastRunLine();
+   '<div class="st"><b>'+score+'</b><span>最终得分</span></div>'+kindLine()+rivLine()+nextGoalLine()+lastRunLine();
   $('rec').style.display=rec?'block':'none';
   if(rec)setTimeout(()=>blip(1568,1568,.35,.1,'triangle'),950);   /* 破纪录高音(#362),同上 */
   lastIsRecord=rec;
@@ -2229,6 +2235,7 @@ function reset(seed){score=0;eaten=0;level=1;elapsed=0;startBest=best;kindStats=
  wrecks.length=0;destroyedIds=[];scarList=[];stumpList=[];saveCool=0;retired=0; // 新局:冷却与退役位都要重来
  RV.score=0;RV.lvl=1;RV.r=20;RV.x=2400;RV.z=600;RV.tgt=null;RV.retarget=0;RV.dead=0;rival.visible=false;
  RV.name=RIVNAMES[(Math.random()*RIVNAMES.length)|0];   /* 每局换新冤家(#239) */
+ RV.runEat=0;RV.runBite=0;RV.runSteal=0;   /* 本局遭遇账(#363):结算卡要读"这局 vs 这位冤家" */
  parkCarry();   /* 残骸随行是"这一程"的战利品:重开归零,下一程从一缕干净的风开始 */
  for(const pool of POOLS){
   for(let i=0;i<pool.dinf.length;i++)pool.dinf[i].on=false;
