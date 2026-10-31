@@ -2269,7 +2269,9 @@ function streakNow(){   /* 展示用的连续天数:昨天或今天打过才算�
 function buildDailyText(){const sk=streakNow();
  return '🌪️ 龙卷风每日挑战 '+dateSeed()+'\n'+score+' 分 · LV.'+level+'\n'
   +'🌪️'.repeat(level)+'▫️'.repeat(Math.max(0,8-level))
-  +(sk>1?'\n已连 '+sk+' 天':'')+'\n—— 你也来卷一把?';}
+  +(sk>1?'\n已连 '+sk+' 天':'')
+  +((RV.runEat||RV.runBite||RV.runSteal)?'\n⚔️ vs '+RV.name+':吞'+(RV.runEat||0)+' 被咬'+(RV.runBite||0)+' 被抢'+(RV.runSteal||0):'')   /* #365:恩怨账进第三面(结算卡/分享图/文案) */
+  +'\n—— 你也来卷一把?';}
 function startGame(m,night,snow){clearRun();mode=m||'campaign';isNight=!!night;isSnow=!!snow;
  if(mode==='daily'){const di=dailyInfo();
   if(di&&di.played){showHint('📅 今天的挑战已完成(最佳 '+di.best+' 分),明天刷新!',3200);return;}
