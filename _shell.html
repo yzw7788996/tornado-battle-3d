@@ -353,7 +353,8 @@
   <div id="bootStuck" class="bootLate" style="animation-delay:25s">
     <div style="color:rgba(255,255,255,.62);font-size:13px;max-width:30em;text-align:center;line-height:1.6">
       还没等到风暴成形 —— 可能是网络中断或设备性能不足。</div>
-    <a id="bootReload" href="index.html">重新加载</a>
+    <span id="bootReloadWrap"><span id="bootReloadVis" aria-hidden="true" onclick="location.reload()">重新加载</span>
+      <a id="bootReload" href="index.html">重新加载</a></span>
     <div style="color:rgba(255,255,255,.38);font-size:12px">也可以继续等,进度不会丢。</div>
   </div>
   <div id="bootWhy" style="display:none;color:rgba(255,255,255,.62);font-size:13px;max-width:30em;text-align:center;line-height:1.6"></div>
@@ -443,23 +444,30 @@ var SPIN0=(function(){var e=el('bootSpin');return e?e.textContent:''})();
 <style>@keyframes bootspin{to{transform:rotate(360deg)}}
 /* 迟到提示:opacity 动画走合成器时间轴,主线程被一个大脚本堵住时照样按 animation-delay 出现 */
 @keyframes bootlate{from{opacity:0}to{opacity:1}}
-/* #361:25s 那条卡的入场要把 visibility 一起带上(离散属性在 50% 处翻):看不见时不可聚焦,到点后可聚焦。 */
-@keyframes bootlate2{from{opacity:0;visibility:hidden}to{opacity:1;visibility:visible}}
-#bootStuck{animation-name:bootlate2}
-.bootLate{opacity:0;visibility:hidden;animation:bootlate .6s ease forwards;will-change:opacity;
+/* #363:visibility 不能进这两条关键帧(主线程被堵时离散属性不翻,会把整块提示一起关掉);
+   焦点门改挂在 #bootReload 自己的 bootlink 上,视觉层继续走合成器的 opacity。 */
+.bootLate{opacity:0;animation:bootlate .6s ease forwards;will-change:opacity;
  display:flex;flex-direction:column;
  align-items:center;gap:12px;padding:0 22px;text-align:center}
 #bootSlow{color:rgba(255,255,255,.45);font-size:13px;letter-spacing:2px;line-height:1.6}
-#bootReload{background:#ffd75e;color:#1b2419;font-weight:900;border-radius:12px;
- padding:12px 20px;font-size:15px;min-height:44px;line-height:20px;text-decoration:none;
+#bootReloadWrap{position:relative;display:inline-flex}
+#bootReloadVis{background:#ffd75e;color:#1b2419;font-weight:900;border-radius:12px;
+ padding:12px 20px;font-size:15px;min-height:44px;line-height:20px;cursor:pointer;
  display:inline-flex;align-items:center}
+/* #363:交互层单独一道 visibility 门(25s 到点才翻);视觉层留在 .bootLate 的 opacity 时间轴上 ——
+   主线程被堵时合成器只推进 opacity,这道门不会把可见提示一起关掉。 */
+@keyframes bootlink{from{visibility:hidden}to{visibility:visible}}
+#bootReload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+ color:transparent;font-weight:900;border-radius:12px;text-decoration:none;
+ visibility:hidden;animation:bootlink .6s ease 25s forwards}
+#bootReload:focus-visible{outline:3px solid #fff;outline-offset:2px}
 /* 6 秒起把"风暴生成中"淡出去,换成下面那句 —— 反向播放同一条时间轴,不占主线程 */
 #bootMsg{animation:bootlate .6s ease reverse forwards;animation-delay:6s;will-change:opacity}
 /* 25 秒那张卡出现时,6 秒那句要跟着淡出。必须用"一条动画 + 关键帧里的两个折点",
    不能写两条同名动画:同一属性上挂两个动画效果时 Chromium 会把它退回主线程驱动,
    而这一段恰恰是主线程被 6.5MB 堵死的时候 —— 实测 6s 那句整场不再出现。
    30s 时长:19%≈5.7s 起淡入,22%≈6.6s 全亮,82%≈24.6s 起淡出,85%≈25.5s 关闭。 */
-@keyframes bootline{0%,19%{opacity:0;visibility:hidden}22%,82%{opacity:1;visibility:visible}85%,100%{opacity:0;visibility:hidden}}
+@keyframes bootline{0%,19%{opacity:0}22%,82%{opacity:1}85%,100%{opacity:0}}
 #bootSlow{animation:bootline 30s linear forwards}</style>
 <canvas id="mm" width="264" height="264" style="width:min(116px,21vw);height:min(116px,21vw)"></canvas>
 
