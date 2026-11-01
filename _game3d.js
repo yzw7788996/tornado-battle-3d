@@ -14,7 +14,8 @@ try{const s=JSON.parse(localStorage.getItem('tornadoCfg'));if(s)CFG=Object.assig
 function saveCfg(){try{localStorage.setItem('tornadoCfg',JSON.stringify(CFG))}catch(e){}}
 let reduceMotion=false;
 function sysReduce(){try{return matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){return false}}
-function applyReduce(){reduceMotion=CFG.reduce==='on'?true:CFG.reduce==='off'?false:sysReduce();}
+function applyReduce(){reduceMotion=CFG.reduce==='on'?true:CFG.reduce==='off'?false:sysReduce();
+ document.documentElement.classList.toggle('rm',reduceMotion);}
 const QSTEP={high:0,mid:2,low:3};
 let qAuto=true;
 function applyQuality(){qAuto=CFG.quality==='auto';
@@ -1906,7 +1907,7 @@ function lastRunLine(){const h=stats.history||[];if(h.length<2)return '';
  const d=score-prev.s;
  return '<div style="width:100%;font-size:12px;opacity:.85;margin:4px 0 0">'
   +(d>0?'📈 比上局 ↑'+d:'📉 比上局 ↓'+(-d))+'</div>';}
-let hintTO=null,lockHintT=0;
+let hintTO=null,lockHintT=0,bannerTO=null;
 /* 下一级解锁了什么:直接告诉玩家该去找什么吃 */
 /* 这座塔在当前模式卷不卷得动 —— 唯一真相。无尽/雪原(雪原复用 endless 的 mode 位)按设计
    卷不动,限时卷得动但不结算。满级文案、锁圈、撞上去的解说三处都问它,不许各写一份规则。 */
@@ -1984,11 +1985,12 @@ function showHint(txt,dur,prio){
  clearTimeout(hintTO);
  hintTO=setTimeout(()=>{const h=$('hint');if(h)h.style.opacity=0;hintTO=null;HINTQ.prio=0;
   const n=HINTQ.q.shift();if(n)showHint(n[0],n[1]);},dur);}
-function clearMsgs(){clearTimeout(hintTO);hintTO=null;hintT=0;HINTQ.prio=0;HINTQ.q.length=0;
+function clearMsgs(){clearTimeout(hintTO);hintTO=null;clearTimeout(bannerTO);bannerTO=null;hintT=0;HINTQ.prio=0;HINTQ.q.length=0;
  const h=$('hint');if(h){h.style.opacity=0;h.textContent='';}
  const b=$('banner');if(b)b.classList.remove('show');}
-function banner(txt){const b=$('banner');b.textContent=txt;b.classList.remove('show');
- void b.offsetWidth;b.classList.add('show');}
+function banner(txt){const b=$('banner');b.textContent=txt;b.classList.remove('show');clearTimeout(bannerTO);
+ void b.offsetWidth;b.classList.add('show');
+ bannerTO=setTimeout(()=>{bannerTO=null;const x=$('banner');if(x)x.classList.remove('show');},1900);}
 function fmt(s){s=Math.max(0,s);const m=(s/60)|0,ss=(s%60)|0;return m+':'+String(ss).padStart(2,'0');}
 /* 本局用时那一格:游玩中由 update() 写,暂停/结算这些 update() 不再跑的时刻由写状态的人自己来叫 ——
    两处共用一个出口,免得暂停屏说 0:05 而 HUD 还停在 0:02(实测改前正是这样)。 */
