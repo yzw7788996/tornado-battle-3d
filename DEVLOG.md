@@ -2845,3 +2845,43 @@ HUD 分数板在屏幕上只有一个裸数字,读屏念出来也是裸数,前�
   手动 on/off 不被覆盖);verify7 S11 用可控 MQL 替身量注册与跟随。
   改前腿系统翻后仍按旧值、改后 rm/reduceMotion 跟到 true,reg=1;verify7 13 行、新臂全绿。
   产物 6,664,166 → 6,664,555(+389 B),两次 build 同 sha dfe1a62c9733d0a3。
+
+## 第 132 轮:#360 开机自旋跟随「减少动效」(壳层提前挂 rm)+ verify72 常驻守卫 + relay 合并
+
+- **产品(已落盘,未提交;等 r126a 全量链)**:`_shell.html` 两处 + 重建 `index.html`。产物 **6,664,555 → 6,665,118(+563 B)**,sha **dfe1a62c9733d0a3 → e248b4414299fed8**,两次 `python build.py` 同 sha。
+  - ①看门狗 IIFE 里(`var GIVE=25000,state=0;` 之后)先挂一次 `html.rm`:按与 `applyReduce()` 相同的口径 —— `CFG.reduce==='on'` 优先、`'off'` 优先、其余(含字段缺失/配置损坏)跟随 `matchMedia('(prefers-reduced-motion: reduce)')`;`localStorage` 被拒时退回系统值,`matchMedia` 不可用时整段静默。
+  - ②`html.rm` 的 `animation:none!important` 名单首项加 `#bootSpin`(它只有 inline animation ⇒ 样式表必须 `!important` 才盖得住)。
+- **为什么光加 CSS 规则不够(这是本轮的现场事实)**:`html.rm` 由 `_game3d.js` 的 `applyReduce()` 挂,而 `applyCfg()` 的调用点在模块**末尾**;开机遮罩在那之前一直是"没有 rm"的状态 ⇒ 只写 `html.rm #bootSpin{...}` 的话,开机那一整段自旋照转,规则到快拆遮罩时才轮到。
+- **发火证人(改前快照对改后,腿 `r132_360_leg.log`,rc=0)**:改前 `harness/index.pre-r132.html`(复制前后 stat+sha 一致;现读 sha=`dfe1a62c9733d0a3`,与 r125a 钉相同)⇒ A/B 两格 `anim=bootspin rm=false`、反事实行红 = **3/4 行发火**;改后 ⇒ A/B `anim=none rm=true`、C(手动关,系统减少)仍 `anim=bootspin` = **0/4**。测量拍钉在"游戏脚本注入之前":夹住 rAF,并当场回读 `#boot/#bootSpin 在 · typeof applyCfg/CFG 仍 undefined · rAF 真被产品调用过(held≥1) · matches 与 cfg 读回一致 · t<10s`。
+- **常驻守卫 verify72(第 72 格,不是 verify7 加行)**:两臂 = `8138/index.old64.html` 对现货;三格 = (系统减少, 默认 auto) / (系统标准, 手动开) / (系统减少, 手动关),第四行反事实"三格读数不许全同"。`--selftest` **红 0/8**(含过修、前提缺席、initFor 注入腿两条);两臂现读 **`改后红: 无 | 改前红 3/4`**(`r132_v72.log`)。闸门落盘侧另有 `r132_360_patch.mjs --selftest` **红 0/12**(锚点各 1 处、二次落盘拒、五格、三态与 fail-soft 六臂)。
+- **挂链前定点预跑**:verify7 0/13(改前 12/13)· verify42 0/7 · verify62 0/18(调用点 18/18)· verify39 0/6 · verify72 两臂绿。
+- **relay 合并(收尾事件的现场记录)**:r125a 尾巴的 close 已生成提交 ab4e147,但 `git push` 被拒 —— 并行主线把 origin/main 推到了 c2a75db(381-438 轮收官)。现读:相对本树基座 0830582,远端只改了 `DEVLOG.md` 附录 58 行,**产品三文件逐字节相同**;合并只冲突 DEVLOG 尾部,按"双段保留"解(远端 434-438 台账 + 我方第 131 轮两段),得 **e19a385** 并推送(`c2a75db..e19a385`,禁 force)。合并前后产品 blob 对 ab4e147 逐字节相同;合并后工作树 sha 仍 `dfe1a62c9733d0a3` ⇒ r125a 的 71 套成绩对那棵树继续成立。
+- 边界:`harness/index.pre-r132.html`、`harness/_shell.html.pre-r132p360` 是量具快照,留在 harness,不提交也不删;`verify72.mjs`/`r132_*.mjs` 是 harness 文件,不进产物;`manifest.json` 没动。
+
+
+## r126a 结链成绩(第 132 轮 · 全量回归 · 由 r126a_tail.sh 从 r126a_status.txt 逐字摘录)
+- 套件行(带 rc=)**72** · 非零 rc **0** 条:无 · 缺席点名 **4** 套/共 **4** 格
+- 链头钉 sha=`e248b4414299fed8` · 收尾时在制 sha=`e248b4414299fed8` · 仓库 HEAD=e19a385(本串验的就是这棵树)
+- 本轮守卫(现读台账原文):
+  `verify72 rc=0 | 新格式[红 0/4] | 缺席格=0 | 形状[老双臂] | 老格式[改后红: 无  |  改前红 3/4] | 汇总[0/4 老双臂 nm=0]`
+  `verify7 rc=0 | 新格式[红 0/13] | 缺席格=0 | 形状[老双臂] | 老格式[改后红: 无  |  改前红 12/13] | 汇总[0/13 老双臂 nm=0]`
+  `verify42 rc=0 | 新格式[红 0/7] | 缺席格=0 | 形状[新格式] | 老格式[] | 汇总[0/7 新格式 nm=0]`
+  `verify62 rc=0 | 新格式[红 0/18] | 缺席格=0 | 形状[新格式] | 老格式[] | 汇总[0/18 新格式 nm=0]`
+  `verify39 rc=0 | 新格式[红 0/6] | 缺席格=0 | 形状[守卫行] | 老格式[] | 汇总[0/6 守卫行 nm=0]`
+  `verify26 rc=0 | 新格式[红 0/5] | 缺席格=0 | 形状[新格式] | 老格式[] | 汇总[0/5 新格式 nm=0]`
+  `verify38 rc=0 | 新格式[红 0/6] | 缺席格=0 | 形状[守卫行] | 老格式[] | 汇总[0/6 守卫行 nm=0]`
+- 链尾门(现读台账原文):
+  | 复读者 rc=0 摘要:套件判到=72 / 判空=0(空里:没跑到 0、空跑/崩 0) 两轮都没跑到=无(覆盖无洞) 
+  | PRODCHECK bad=0 rc=0
+  | PRODCHECK rc=0(四件产物存在/非空/形状 + 套件日志数;见上面 PROD-* 各行)
+  | CMPCHAIN r125a_status.txt(72 套行)→ r126a_status.txt(73 套行)
+  | CMPCHAIN rc=1 只作信息入账(链间套件面本来会长短;差异逐条人工归因,不并进总判决)
+  | ROWCOV rc=0 [棘轮 r126a] 文件 73 · 判到 40(COVERED 40 / BLIND 0) · 不适用 32 · 没跑到 1 · 没交分母 0 · 形状不认 0
+  | NAMECHECK rc=3 [按名字对账 r110_namecheck] 前缀=r126a 套件 73 · 可判 59/73(这把尺子的真实覆盖面,不许读成"全量对账") · 齐 58(其中靠扣 NOT MEASURED 对平 1、靠重名样本对平 1) · 有行没出现 1 · 名字在却没印行 0 · 分母对不上 0 · 半判(射程外) 0 · 没日志 1 · 抽不出行名 13 · 链没记分母 0 · 重名套件 3 · 同名多声明套件 0
+  | SELFTEST rc=0 [自检门] ⇒ 放行(每个新格的自证行都被读过,且分母≥1)
+  | TEETH rc=0 [r126a 回执分桶] 日志 72 份 · 分桶之和 72(平)
+- 归因:门 rc=0,台账 r126a_attrib.txt(红尾 0 条 ⇒ 每条一行,类∈过期期望/没跑到/产品退化/量具)
+- 本轮交付的产品改动:#360 开机遮罩的自旋在**游戏脚本注入之前**就跟「减少动效」走 —— 壳层看门狗按
+  "手动 on/off 优先、auto 跟系统"先挂 html.rm,并把 #bootSpin 加进 animation:none!important 名单。
+  改前快照 dfe1a62c9733d0a3 ⇒ 三格里 A/B 仍在转(3/4 行发火);改后 e248b4414299fed8 ⇒ A/B 停、手动关仍转(0/4)。
+  产物 6,664,555 → 6,665,118(+563 B),两次 build 同 sha;新增 verify72 常驻守卫(套数 71→72)。

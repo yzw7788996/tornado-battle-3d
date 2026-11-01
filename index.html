@@ -128,7 +128,7 @@
      (按钮扫光、进度条流光、横幅缩放、连击弹跳、倒计时脉冲、卡片入场)照样在跑。
      html.rm 由 applyReduce() 按同一枚 reduceMotion 开关挂上。横幅不直接 animation:none:
      它原本靠 bpop 末帧 forwards 收场,这里补一个静态可见态,收场交给 banner() 的 1900ms 定时器。 */
-  html.rm .bigbtn::after,html.rm #fill,html.rm #combo.on,html.rm #timerbox.danger,
+  html.rm #bootSpin,html.rm .bigbtn::after,html.rm #fill,html.rm #combo.on,html.rm #timerbox.danger,
   html.rm #score.bump,html.rm #combon.bump,html.rm #tut.on,html.rm #win:not(.hidden) .card{animation:none!important}
   html.rm #banner.show{animation:none!important;opacity:1;transform:translate(-50%,-50%)}
   #score.bump,#combon.bump{animation:bump .3s ease}   /* 连击数每次 +1 弹一下(#238):分数栏同款范式 */
@@ -364,6 +364,11 @@
    阈值按实测健康启动 3.4s 留倍数;6s 只是换句话安抚,25s 才承认"没等到"。 */
 (function(){
  var GIVE=25000,state=0;
+ /* #360:开机自旋也要跟「减少动效」走 —— 这层遮罩在游戏脚本注入之前,applyReduce 要到模块末尾才挂 html.rm,
+    所以这里按同一口径先挂一次(手动 on/off 优先,auto 跟系统);模块末尾的 applyCfg() 会再对齐一次。 */
+ try{var rc='';try{rc=JSON.parse(localStorage.getItem('tornadoCfg')||'{}').reduce||''}catch(e){}
+  var rmEarly=rc==='on'||(rc!=='off'&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+  document.documentElement.classList.toggle('rm',rmEarly);}catch(e){}
  function el(i){return document.getElementById(i);}
 var SPIN0=(function(){var e=el('bootSpin');return e?e.textContent:''})();
  function alive(){return !!el('boot');}
