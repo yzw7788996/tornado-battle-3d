@@ -247,12 +247,14 @@
   /* #364-b:牌面声明成按钮后,[role=button] 会被 verify12 的"触屏 44px"扫到 —— 触屏给足 44px 命中区;
      鼠标/桌面保持紧凑的成就墙(24px 高,满足 2.5.8 的 24×24)。 */
   @media (pointer:coarse){#achv .ach{min-height:44px;display:inline-flex;align-items:center}}
+  /* #372:锁定态字太暗 —— 10.5px 字在 .45 组透明度下实测 3.78~3.98:1(AA 要 4.5:1);
+     组透明度抬到 .62、em 去掉 .72,同一把尺子量到 ≥6:1。 */
   .ach{font-size:10.5px;padding:4px 10px;border-radius:999px;letter-spacing:1px;
-    border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);opacity:.45}
+    border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);opacity:.62}
   .ach.on{border-color:rgba(255,215,94,.45);background:rgba(255,215,94,.13);
     color:#ffd75e;opacity:1;font-weight:700}
   /* 牌上那串门槛数字(50 件 / 25 连 …):次要字重,别抢走成就名 */
-  .ach em{font-style:normal;font-weight:600;opacity:.72;margin-left:5px;letter-spacing:0}
+  .ach em{font-style:normal;font-weight:600;margin-left:5px;letter-spacing:0}
   .badge{display:inline-flex;align-items:center;gap:6px;margin-top:12px;
     background:rgba(255,215,94,.12);border:1px solid rgba(255,215,94,.34);
     color:#ffd75e;border-radius:999px;padding:6px 16px;font-size:12px;font-weight:700;letter-spacing:1px}
