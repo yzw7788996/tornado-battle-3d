@@ -369,6 +369,12 @@
  try{var rc='';try{rc=JSON.parse(localStorage.getItem('tornadoCfg')||'{}').reduce||''}catch(e){}
   var rmEarly=rc==='on'||(rc!=='off'&&matchMedia('(prefers-reduced-motion: reduce)').matches);
   document.documentElement.classList.toggle('rm',rmEarly);}catch(e){}
+ /* #361:开机遮罩期间,被它盖住的 #hud/#menu 还在 Tab 顺序里 —— 键盘会在"看不见的按钮"上停住。
+    开局前先挂 inert;游戏第一帧的 syncInert() 每帧都按真实浮层状态写这两块,所以它会自己解锁。 */
+ function bootBgLock(){
+  try{var lk=['hud','menu'];for(var i=0;i<lk.length;i++){var e2=document.getElementById(lk[i]);if(e2&&'inert'in e2)e2.inert=true;}}catch(e){}
+ }
+ if(document.readyState==='loading')addEventListener('DOMContentLoaded',bootBgLock);else bootBgLock();
  function el(i){return document.getElementById(i);}
 var SPIN0=(function(){var e=el('bootSpin');return e?e.textContent:''})();
  function alive(){return !!el('boot');}
@@ -437,7 +443,10 @@ var SPIN0=(function(){var e=el('bootSpin');return e?e.textContent:''})();
 <style>@keyframes bootspin{to{transform:rotate(360deg)}}
 /* 迟到提示:opacity 动画走合成器时间轴,主线程被一个大脚本堵住时照样按 animation-delay 出现 */
 @keyframes bootlate{from{opacity:0}to{opacity:1}}
-.bootLate{opacity:0;animation:bootlate .6s ease forwards;will-change:opacity;
+/* #361:25s 那条卡的入场要把 visibility 一起带上(离散属性在 50% 处翻):看不见时不可聚焦,到点后可聚焦。 */
+@keyframes bootlate2{from{opacity:0;visibility:hidden}to{opacity:1;visibility:visible}}
+#bootStuck{animation-name:bootlate2}
+.bootLate{opacity:0;visibility:hidden;animation:bootlate .6s ease forwards;will-change:opacity;
  display:flex;flex-direction:column;
  align-items:center;gap:12px;padding:0 22px;text-align:center}
 #bootSlow{color:rgba(255,255,255,.45);font-size:13px;letter-spacing:2px;line-height:1.6}
@@ -450,7 +459,7 @@ var SPIN0=(function(){var e=el('bootSpin');return e?e.textContent:''})();
    不能写两条同名动画:同一属性上挂两个动画效果时 Chromium 会把它退回主线程驱动,
    而这一段恰恰是主线程被 6.5MB 堵死的时候 —— 实测 6s 那句整场不再出现。
    30s 时长:19%≈5.7s 起淡入,22%≈6.6s 全亮,82%≈24.6s 起淡出,85%≈25.5s 关闭。 */
-@keyframes bootline{0%,19%{opacity:0}22%,82%{opacity:1}85%,100%{opacity:0}}
+@keyframes bootline{0%,19%{opacity:0;visibility:hidden}22%,82%{opacity:1;visibility:visible}85%,100%{opacity:0;visibility:hidden}}
 #bootSlow{animation:bootline 30s linear forwards}</style>
 <canvas id="mm" width="264" height="264" style="width:min(116px,21vw);height:min(116px,21vw)"></canvas>
 

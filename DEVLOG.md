@@ -2885,3 +2885,46 @@ HUD 分数板在屏幕上只有一个裸数字,读屏念出来也是裸数,前�
   "手动 on/off 优先、auto 跟系统"先挂 html.rm,并把 #bootSpin 加进 animation:none!important 名单。
   改前快照 dfe1a62c9733d0a3 ⇒ 三格里 A/B 仍在转(3/4 行发火);改后 e248b4414299fed8 ⇒ A/B 停、手动关仍转(0/4)。
   产物 6,664,555 → 6,665,118(+563 B),两次 build 同 sha;新增 verify72 常驻守卫(套数 71→72)。
+
+## 第 133 轮:#361 开机遮罩期间「看不见的控件」不该拿焦点(迟到卡 visibility + 壳层 inert)+ verify73 常驻守卫
+
+- **产品(已落盘,未提交;等 r127a 全量链)**:`_shell.html` 四处 + 重建 `index.html`。产物 **6,665,118 → 6,665,995(+877 B)**,sha **e248b4414299fed8 → 73afdf501515e2c4**,两次 `python build.py` 同 sha。
+  - ①`.bootLate` 基行加 `visibility:hidden`;②新增 `@keyframes bootlate2`(visibility 随 opacity 一起翻)并给 `#bootStuck{animation-name:bootlate2}`;③`bootline` 关键帧在 19%/22%/82%/85% 折点带上 visibility;④壳层在 `DOMContentLoaded` 给 `#hud`/`#menu` 挂 `inert`(仍是 `'inert' in e` 的能力探测),游戏第一帧的 `syncInert()` 按真实浮层状态把它们解锁(它本来每帧都写这两块)。
+- **为什么要动两处**:25s 那张迟到卡是 `opacity:0` 但 `visibility:visible` —— 「重新加载」链接在整段加载里都能被 Tab 到,回车会把加载重启;而被 z-index:99 的不透明遮罩盖住的 `#hud`/`#menu` 按钮同样在 Tab 顺序里。两边都是"焦点落在看不见的地方"。
+- **发火证人(改前快照对改后,腿 `r133_361_leg.log`,rc=0)**:改前 `harness/index.pre-r133.html`(复制前后 stat+sha 一致;现读 sha=`e248b4414299fed8`)⇒ **4/7 行红**:
+  R1 看不见的「重新加载」可聚焦=true;R2 背景 `snd/pp/start` 全部可聚焦;R3 Tab 六次 `["moreBtn","BODY","bootReload","snd","pp","cfg"]`;R6 迟到卡的 visibility 在两个时刻都是 visible。
+  改后 ⇒ **0/7**:Tab 六次全 `BODY`、四个控件全部不可聚焦;到点(`bootlate ct=25600ms`)「重新加载」重新可聚焦;开局后 `menu.inert=false` 且 `start` 可聚焦。
+- **量具坑(本轮真咬到,已修)**:先用墙钟 t≈7.4s 读「6s 那句迟到提示」,改前臂读到 `opacity=0` 假红 —— 现读该页首帧晚了约 1.7s(`getAnimations()[0].startTime≈2400ms`),墙钟 7.4s 时 `animationTime` 只有 5.0s。改成**按动画自己的时钟**等(`ct>=6800` / `ct>=25600`)后两臂都稳定;(夹住 rAF 时 `waitForFunction` 的默认 rAF 轮询会挂,必须 `polling:100`)。H2 那一拍用"压住 >=12s 的 JS 定时器"模拟主线程被堵(产品注释本来就是为这个场景设计的),CSS 时间轴不改。
+- **常驻守卫 verify73(第 73 格,不是 verify72 加行)**:三拍 H1(开机 1.2s + 6s 提示到点)/ H2(模拟被堵到 25s)/ N(开局后),七行;`--selftest` **红 0/7**;两臂现读 **`改后红: 无 | 改前红 4/7`**(`r133_v73.log`,改前臂=8138/index.old64.html)。
+- **挂链前定点预跑**:verify7 0/13(改前 12/13)· verify42 0/7 · verify62 0/18(调用点 18/18)· verify39 0/6 · verify72 0/4。
+- **上一串 r126a 的 `NAMECHECK rc=3` 登记(不是产品红)**:成因是 verify73 在链跑到 5/72 时被我提前写进 harness ⇒ 链尾 NAMECHECK 现读分母 73、本串只有 72 行,于是"有行没出现 1 / 没日志 1"正是那一格。教训:**新 `verifyN.mjs` 会在链尾 ROWCOV/NAMECHECK 的现读分母里出现,只能在结链之后上盘**;本串 73 套会把 verify73 真正放回分母(它有日志有行)。
+- 边界:`harness/index.pre-r133.html`、`harness/_shell.html.pre-r133p361` 是量具快照,留在 harness,不提交也不删;`r133_*.mjs` / `verify73.mjs` 是 harness 文件,不进产物;`manifest.json` 没动。
+
+
+## r127a 结链成绩(第 133 轮 · 全量回归 · 由 r127a_tail.sh 从 r127a_status.txt 逐字摘录)
+- 套件行(带 rc=)**73** · 非零 rc **1** 条:verify18  · 缺席点名 **3** 套/共 **3** 格
+- 链头钉 sha=`73afdf501515e2c4` · 收尾时在制 sha=`73afdf501515e2c4` · 仓库 HEAD=bc45765(本串验的就是这棵树)
+- 本轮守卫(现读台账原文):
+  `verify73 rc=0 | 新格式[红 0/7] | 缺席格=0 | 形状[老双臂] | 老格式[改后红: 无  |  改前红 4/7] | 汇总[0/7 老双臂 nm=0]`
+  `verify72 rc=0 | 新格式[红 0/4] | 缺席格=0 | 形状[老双臂] | 老格式[改后红: 无  |  改前红 3/4] | 汇总[0/4 老双臂 nm=0]`
+  `verify42 rc=0 | 新格式[红 0/7] | 缺席格=0 | 形状[新格式] | 老格式[] | 汇总[0/7 新格式 nm=0]`
+  `verify62 rc=0 | 新格式[红 0/18] | 缺席格=0 | 形状[新格式] | 老格式[] | 汇总[0/18 新格式 nm=0]`
+  `verify39 rc=0 | 新格式[红 0/6] | 缺席格=0 | 形状[守卫行] | 老格式[] | 汇总[0/6 守卫行 nm=0]`
+  `verify7 rc=0 | 新格式[红 0/13] | 缺席格=0 | 形状[老双臂] | 老格式[改后红: 无  |  改前红 12/13] | 汇总[0/13 老双臂 nm=0]`
+- 链尾门(现读台账原文):
+  | 复读者 rc=0 摘要:套件判到=73 / 判空=0(空里:没跑到 0、空跑/崩 0) 两轮都没跑到=无(覆盖无洞) 
+  | PRODCHECK bad=0 rc=0
+  | PRODCHECK rc=0(四件产物存在/非空/形状 + 套件日志数;见上面 PROD-* 各行)
+  | CMPCHAIN r126a_status.txt(73 套行)→ r127a_status.txt(74 套行)
+  | CMPCHAIN rc=1 只作信息入账(链间套件面本来会长短;差异逐条人工归因,不并进总判决)
+  | ROWCOV rc=0 [棘轮 r127a] 文件 73 · 判到 40(COVERED 40 / BLIND 0) · 不适用 33 · 没跑到 0 · 没交分母 0 · 形状不认 0
+  | NAMECHECK rc=3 [按名字对账 r110_namecheck] 前缀=r127a 套件 73 · 可判 60/73(这把尺子的真实覆盖面,不许读成"全量对账") · 齐 58(其中靠扣 NOT MEASURED 对平 1、靠重名样本对平 1) · 有行没出现 2 · 名字在却没印行 0 · 分母对不上 0 · 半判(射程外) 0 · 没日志 0 · 抽不出行名 13 · 链没记分母 0 · 重名套件 3 · 同名多声明套件 0
+  | SELFTEST rc=0 [自检门] ⇒ 放行(每个新格的自证行都被读过,且分母≥1)
+  | TEETH rc=0 [r127a 回执分桶] 日志 73 份 · 分桶之和 73(平)
+- 归因:门 rc=0,台账 r127a_attrib.txt(红尾 1 条 ⇒ 每条一行,类∈过期期望/没跑到/产品退化/量具)
+- 本轮交付的产品改动:#361 开机遮罩期间"看不见的控件"不再拿焦点 —— 迟到卡的 visibility 跟着自己的
+  bootlate2/bootline 时间轴翻(25s 前「重新加载」不可见也不可聚焦),壳层在开局前给被遮罩盖住的
+  #hud/#menu 挂 inert,游戏第一帧的 syncInert() 按真实浮层状态解锁。
+  改前快照 e248b4414299fed8 ⇒ 4/7 行发火(Tab 落在看不见的链接/背景控件、visibility 恒 visible);
+  改后 73afdf501515e2c4 ⇒ 0/7。产物 6,665,118 → 6,665,995(+877 B),两次 build 同 sha;
+  新增 verify73 常驻守卫(套数 72→73)。
