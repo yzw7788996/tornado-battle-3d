@@ -2778,6 +2778,9 @@ if(navigator.serviceWorker&&(location.protocol==='https:'||location.hostname==='
  if(document.readyState==='complete')reg();else addEventListener('load',reg);}
 camera.position.set(1080,300,3120);
 requestAnimationFrame(frame);
+/* #359:CFG.reduce='auto' 的"跟随系统"原来只在 applyCfg 那一刻读一次 —— 游戏开着时改系统
+   减少动效,场景与界面都还按旧值跑。监听媒体查询变化,只让 auto 档重算(手动 on/off 不被系统覆盖)。 */
+try{matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change',()=>{if(CFG.reduce==='auto')applyCfg();});}catch(e){}
 const bootEl=$('boot');if(bootEl)bootEl.remove();
 const SURFACES=['menu','pause','settings','shareLayer','win'],BG=[...SURFACES,'hud'];let inertSig='',settingsOpener=null;
  /* #250:浮层在场时背景不该接收焦点/点击。按 z-index 认最上层,只放它一个可聚焦;
