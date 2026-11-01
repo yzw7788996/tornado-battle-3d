@@ -3077,7 +3077,10 @@ function renderSettings(){
  for(const p of [['sQ','quality'],['sR','reduce']])
   for(const c of document.querySelectorAll('#'+p[0]+' .chip'))
    {c.classList.toggle('on',c.dataset.v===CFG[p[1]]);c.setAttribute('aria-pressed',String(c.dataset.v===CFG[p[1]]));}
- var vibCap=typeof navigator.vibrate==='function'&&!vibNo;$('sVib').classList.toggle('on',vibCap&&CFG.vib);$('sCb').classList.toggle('on',CFG.cb);
+ var vibCap=typeof navigator.vibrate==='function'&&!vibNo;var vibOn=!!vibCap&&CFG.vib;
+ $('sVib').classList.toggle('on',vibOn);$('sCb').classList.toggle('on',CFG.cb);
+ $('sVib').setAttribute('aria-pressed',String(vibOn));
+ $('sCb').setAttribute('aria-pressed',String(CFG.cb));
  $('sVib').textContent=(vibCap?(CFG.vib?'✓ ':''):'✕ ')+'📳 震动反馈';
  $('sVib').title=vibCap?'点一下开/关手机震动反馈':'本机给不了震动(没有 vibrate 或它返回 false)——开着也感觉不到';
  $('sCb').textContent=(CFG.cb?'✓ ':'')+'🎨 色盲友好描边';
