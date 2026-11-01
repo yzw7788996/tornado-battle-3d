@@ -124,6 +124,13 @@
      命中区不能依赖"等人静止了再合规"。贝塞尔的过冲仍在位移上,弹手感不丢。 */
   @keyframes cardin{from{transform:translateY(26px);opacity:0}
     to{transform:translateY(0);opacity:1}}
+  /* 第 129 轮 #357:设置里的「减弱」/「跟随系统」原来只作用在 3D 场景,界面自己的 CSS 动效
+     (按钮扫光、进度条流光、横幅缩放、连击弹跳、倒计时脉冲、卡片入场)照样在跑。
+     html.rm 由 applyReduce() 按同一枚 reduceMotion 开关挂上。横幅不直接 animation:none:
+     它原本靠 bpop 末帧 forwards 收场,这里补一个静态可见态,收场交给 banner() 的 1900ms 定时器。 */
+  html.rm .bigbtn::after,html.rm #fill,html.rm #combo.on,html.rm #timerbox.danger,
+  html.rm #score.bump,html.rm #combon.bump,html.rm #tut.on,html.rm #win:not(.hidden) .card{animation:none!important}
+  html.rm #banner.show{animation:none!important;opacity:1;transform:translate(-50%,-50%)}
   #score.bump,#combon.bump{animation:bump .3s ease}   /* 连击数每次 +1 弹一下(#238):分数栏同款范式 */
   @keyframes bump{30%{transform:scale(1.28);color:#ffe9a8}}
   .card{position:relative;width:min(90vw,382px);max-height:92vh;overflow:auto;border-radius:30px;
@@ -617,7 +624,8 @@ try{const s=JSON.parse(localStorage.getItem('tornadoCfg'));if(s)CFG=Object.assig
 function saveCfg(){try{localStorage.setItem('tornadoCfg',JSON.stringify(CFG))}catch(e){}}
 let reduceMotion=false;
 function sysReduce(){try{return matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){return false}}
-function applyReduce(){reduceMotion=CFG.reduce==='on'?true:CFG.reduce==='off'?false:sysReduce();}
+function applyReduce(){reduceMotion=CFG.reduce==='on'?true:CFG.reduce==='off'?false:sysReduce();
+ document.documentElement.classList.toggle('rm',reduceMotion);}
 const QSTEP={high:0,mid:2,low:3};
 let qAuto=true;
 function applyQuality(){qAuto=CFG.quality==='auto';
@@ -2509,7 +2517,7 @@ function lastRunLine(){const h=stats.history||[];if(h.length<2)return '';
  const d=score-prev.s;
  return '<div style="width:100%;font-size:12px;opacity:.85;margin:4px 0 0">'
   +(d>0?'📈 比上局 ↑'+d:'📉 比上局 ↓'+(-d))+'</div>';}
-let hintTO=null,lockHintT=0;
+let hintTO=null,lockHintT=0,bannerTO=null;
 /* 下一级解锁了什么:直接告诉玩家该去找什么吃 */
 /* 这座塔在当前模式卷不卷得动 —— 唯一真相。无尽/雪原(雪原复用 endless 的 mode 位)按设计
    卷不动,限时卷得动但不结算。满级文案、锁圈、撞上去的解说三处都问它,不许各写一份规则。 */
@@ -2587,11 +2595,12 @@ function showHint(txt,dur,prio){
  clearTimeout(hintTO);
  hintTO=setTimeout(()=>{const h=$('hint');if(h)h.style.opacity=0;hintTO=null;HINTQ.prio=0;
   const n=HINTQ.q.shift();if(n)showHint(n[0],n[1]);},dur);}
-function clearMsgs(){clearTimeout(hintTO);hintTO=null;hintT=0;HINTQ.prio=0;HINTQ.q.length=0;
+function clearMsgs(){clearTimeout(hintTO);hintTO=null;clearTimeout(bannerTO);bannerTO=null;hintT=0;HINTQ.prio=0;HINTQ.q.length=0;
  const h=$('hint');if(h){h.style.opacity=0;h.textContent='';}
  const b=$('banner');if(b)b.classList.remove('show');}
-function banner(txt){const b=$('banner');b.textContent=txt;b.classList.remove('show');
- void b.offsetWidth;b.classList.add('show');}
+function banner(txt){const b=$('banner');b.textContent=txt;b.classList.remove('show');clearTimeout(bannerTO);
+ void b.offsetWidth;b.classList.add('show');
+ bannerTO=setTimeout(()=>{bannerTO=null;const x=$('banner');if(x)x.classList.remove('show');},1900);}
 function fmt(s){s=Math.max(0,s);const m=(s/60)|0,ss=(s%60)|0;return m+':'+String(ss).padStart(2,'0');}
 /* 本局用时那一格:游玩中由 update() 写,暂停/结算这些 update() 不再跑的时刻由写状态的人自己来叫 ——
    两处共用一个出口,免得暂停屏说 0:05 而 HUD 还停在 0:02(实测改前正是这样)。 */

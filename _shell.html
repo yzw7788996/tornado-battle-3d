@@ -124,6 +124,13 @@
      命中区不能依赖"等人静止了再合规"。贝塞尔的过冲仍在位移上,弹手感不丢。 */
   @keyframes cardin{from{transform:translateY(26px);opacity:0}
     to{transform:translateY(0);opacity:1}}
+  /* 第 129 轮 #357:设置里的「减弱」/「跟随系统」原来只作用在 3D 场景,界面自己的 CSS 动效
+     (按钮扫光、进度条流光、横幅缩放、连击弹跳、倒计时脉冲、卡片入场)照样在跑。
+     html.rm 由 applyReduce() 按同一枚 reduceMotion 开关挂上。横幅不直接 animation:none:
+     它原本靠 bpop 末帧 forwards 收场,这里补一个静态可见态,收场交给 banner() 的 1900ms 定时器。 */
+  html.rm .bigbtn::after,html.rm #fill,html.rm #combo.on,html.rm #timerbox.danger,
+  html.rm #score.bump,html.rm #combon.bump,html.rm #tut.on,html.rm #win:not(.hidden) .card{animation:none!important}
+  html.rm #banner.show{animation:none!important;opacity:1;transform:translate(-50%,-50%)}
   #score.bump,#combon.bump{animation:bump .3s ease}   /* 连击数每次 +1 弹一下(#238):分数栏同款范式 */
   @keyframes bump{30%{transform:scale(1.28);color:#ffe9a8}}
   .card{position:relative;width:min(90vw,382px);max-height:92vh;overflow:auto;border-radius:30px;
