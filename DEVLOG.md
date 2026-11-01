@@ -2967,3 +2967,49 @@ HUD 分数板在屏幕上只有一个裸数字,读屏念出来也是裸数,前�
   可见视觉层(span,aria-hidden,onclick)+ 透明覆盖的真链接(#bootReload 自带 visibility:hidden + bootlink 25s 翻,翻前不可聚焦)。
   这是修上一串 #361 的退化:r127a 的 verify18 红 3/8 显示 visibility 进关键帧后,主线程被 120s 夹具堵死时 6s/25s 提示整场不可见(band2/band3 恒 0)。
   产物 6,665,995 → 6,666,653(+658 B),两次 build 同 sha;verify18 0/8、verify73 0/7(改前 4/7)。
+
+## 第 135 轮:#362 设置面板「▸ 战绩与成就」的展开状态补上程序可读通道;verify62 加 A4b 与三条反向臂
+
+- **产品(已落盘,未提交;等 r129a)**:两文件 —— `_shell.html` 给 `#moreBtn` 补 `aria-expanded="false"` + `aria-controls="more"`(初值与 `.open` 一致);`_game3d.js` 新增唯一写者 `syncMore()`(按 `.open` 类写 `aria-expanded`),点击处理器在 toggle 之后调它,`renderSettings()` 开头也调它(面板重开时 `.open` 可能还在)。产物 **6,666,653 → 6,667,160(+507 B = shell 43 + game 464)**,sha **0d79a59dfed8892c → 71f615d7d493327a**,两次 `python build.py` 同 sha。
+- **为什么**:`▸/▾` 只对眼睛成立;读屏听到的只是"名字变了",拿不到"展开/收起"这个状态(disclosure 控件的 4.1.2)。行为一个像素没动,只加状态通道。
+- **发火证人(`r135_362_leg.log`,rc=0)**:改前 `harness/index.pre-r135.html`(现读 sha=`0d79a59dfed8892c`)⇒ 三拍 `aria-expanded=null/controls=null`,**4/5 行发火**(R1 初值、R2 展开、R3 收起、R5 反事实);改后 ⇒ `false / true / false`、`controls=more`、**0/5**;反向条件一起量:可见箭头两态仍是 ▸→▾→▸,`#more` 展开高度 284px、max-height 落到 560px。
+- **量具坑(本轮真咬到)**:max-height 是 transition,无头页里**不强制一帧它的时钟不往前走** —— 点完等 500ms 仍读到 `max-height:0px / h=0`(`r135_362_diag.mjs`:同一次点击后踢一帧才 ct=8ms,800ms 后 560px)。腿改成"先 `offsetHeight` 踢一帧,再等 max-height 落到 0 或 ≥500",避免把量具的缺席读成"没展开"。
+- **常驻守卫 verify62**:新增 **A4b**(markup 初值 / 唯一写者 / 点击后调用 / 开面板调用,四问一体;判据函数 `judgeMore` 只写一份)+ **S24/S25/S26** 三条反向臂(抹初值 / 抹点击后的 syncMore / 抹开面板的 syncMore,各自必须让 A4b 红);A7 的 aria 台账 **8→10**(#363 的 `#bootReloadVis` 是第 8 条,本轮 +2);现读主判决 **0/19**、自检 **0/30**。
+- **顺带修掉一条静默臂**:S5 原来锚 `id="moreBtn">▸`,本轮给按钮加属性后锚点 0 处、注入没做成、却因为"现货有 ▸"碰巧报红 —— 改成"id 到 `>` 之间任意属性"并**当场断言抹动发生了**(`mut5`);这正是 S6 注释里同类的自伤,换个位置又长出来了。
+- **上一串 r128a 的两条账(本串一并登记)**:
+  - 唯一红尾 **verify20 U2 = 量具**:链上 bot 读 LV.5 24.6s<27s(历次 28.6~36.6s),同树空机复跑 **35.1s、红 0/4**(`r128a_v20.log` / `r128a_v20_rerun.log`);本串产品与上一串的 `_game3d.js` 逐字节相同(只改开机壳层)⇒ 不当产品退化,台账 `r128a_attrib.txt` 类=量具。
+  - **NAMECHECK rc=3 的根因已修**:`r110_namecheck` 把 `--selftest` 段里的 `ok('S1 …')` 当成产品行名(verify72/73 各一条 MISSING);改成抽行名之前先把 `--selftest` 分派体与 `*selftest*` 函数体挖成空白。改前 `r129_namecheck_before.log`(rc=3、2 条 MISSING)→ 改后 `r129_namecheck_after.log`(**rc=0、0 条 MISSING**;verify72/73 归入"抽不出行名"这一档,行名在模块里,这把尺子本来就看不见)。r127a/r126a 复算同样 rc=0。修的时候自己先犯了一次:第一版正则 `[A-Za-z_$][\w$]*selftest…` 结构上匹配不到名字**正好**叫 `selftest` 的函数,干跑一眼看见。
+- **量具自纠(同批进链)**:verify11 Q5 的 `cardAgain` 在 `grew` 之后**立即**读 —— `grew` 只证"导航发生了"(`__rc` 在新文档开头就 +1),重载后的错误卡要等启动抛错后 `say()` 才画出来;同一棵树前三串都是 `true`,r129a 读到 `false` 是竞态。改成等 `#bootRetry`(≤15s)再判;复跑 **Q5 绿**(grew/cardAgain 都 true)、改后红 无(改前臂 5/8),台账 `r129a_attrib.txt` 类=量具,证据 `r129a_v11_rerun.log`。
+- 边界:`index.pre-r135.html`、`_shell.html.pre-r134p362`、`_game3d.js.pre-r134p362` 是量具快照,留在 harness,不提交也不删;`r135_*.mjs` 与 `verify62.mjs` 是 harness 文件;`manifest.json` 没动。
+- **verify20 U2 稳定化(harness 两文件,与本轮同批进链;量具债,不改产品)**:单次 bot 的 LV.5 骑在"随机城市 + 负载"上(近九串 24.6~43.1s = 1.75×,27s 下限只剩 1.6~2s 余量)。`bot.mjs` 加**可选** `SEED`(给了就在开局后 `reset(seed)` 重开同一座城,并把 `BOTWORLD {seed,sum,n}` 打进 stdout;不给 ⇒ 默认行为一字未变);`verify20` 的 U2 改成 **BOT_RUNS=3 次同城中位**,**27s/170s 门槛一字未改**,世界指纹不一致或有效读数 <2 次 ⇒ 行内写 NOT MEASURED。证人:同种子两臂指纹都 `20260924:316445`、LV.5 29 / 29.9s(`r135_bot_seed1.log` / `r135_bot_seed2.log`);整跑 `r135_v20_stable.log` U2 中位 **35.2s**(逐次 39.6/35.2/30.7)、红 0/4、墙钟 363s(链上限 900s);纯函数自检 `--selftest` **0/5**(T2 中位 <27 必须红、T3 世界不一致必须 NOT MEASURED)。
+
+
+## r129a 结链成绩(第 135 轮 · 全量回归 · 由 r129a_tail.sh 从 r129a_status.txt 逐字摘录)
+- 套件行(带 rc=)**73** · 非零 rc **1** 条:verify11  · 缺席点名 **3** 套/共 **3** 格
+- 链头钉 sha=`71f615d7d493327a` · 收尾时在制 sha=`71f615d7d493327a` · 仓库 HEAD=9462000(本串验的就是这棵树)
+- 本轮守卫(现读台账原文):
+  `verify62 rc=0 | 新格式[红 0/19] | 缺席格=0 | 形状[新格式] | 老格式[] | 汇总[0/19 新格式 nm=0]`
+  `verify7 rc=0 | 新格式[红 0/13] | 缺席格=0 | 形状[老双臂] | 老格式[改后红: 无  |  改前红 12/13] | 汇总[0/13 老双臂 nm=0]`
+  `verify42 rc=0 | 新格式[红 0/7] | 缺席格=0 | 形状[新格式] | 老格式[] | 汇总[0/7 新格式 nm=0]`
+  `verify39 rc=0 | 新格式[红 0/6] | 缺席格=0 | 形状[守卫行] | 老格式[] | 汇总[0/6 守卫行 nm=0]`
+  `verify72 rc=0 | 新格式[红 0/4] | 缺席格=0 | 形状[老双臂] | 老格式[改后红: 无  |  改前红 3/4] | 汇总[0/4 老双臂 nm=0]`
+  `verify73 rc=0 | 新格式[红 0/7] | 缺席格=0 | 形状[老双臂] | 老格式[改后红: 无  |  改前红 4/7] | 汇总[0/7 老双臂 nm=0]`
+  `verify18 rc=0 | 新格式[红 0/8] | 缺席格=0 | 形状[新格式] | 老格式[] | 汇总[0/8 新格式 nm=0]`
+  `verify20 rc=0 | 新格式[红 0/4] | 缺席格=0 | 形状[新格式] | 老格式[] | 汇总[0/4 新格式 nm=0]`
+- 链尾门(现读台账原文):
+  | 复读者 rc=0 摘要:套件判到=73 / 判空=0(空里:没跑到 0、空跑/崩 0) 两轮都没跑到=无(覆盖无洞) 
+  | PRODCHECK bad=0 rc=0
+  | PRODCHECK rc=0(四件产物存在/非空/形状 + 套件日志数;见上面 PROD-* 各行)
+  | CMPCHAIN r128a_status.txt(74 套行)→ r129a_status.txt(74 套行)
+  | CMPCHAIN rc=1 只作信息入账(链间套件面本来会长短;差异逐条人工归因,不并进总判决)
+  | ROWCOV rc=0 [棘轮 r129a] 文件 73 · 判到 40(COVERED 40 / BLIND 0) · 不适用 33 · 没跑到 0 · 没交分母 0 · 形状不认 0
+  | NAMECHECK rc=0 [按名字对账 r110_namecheck] 前缀=r129a 套件 73 · 可判 58/73(这把尺子的真实覆盖面,不许读成"全量对账") · 齐 58(其中靠扣 NOT MEASURED 对平 1、靠重名样本对平 1) · 有行没出现 0 · 名字在却没印行 0 · 分母对不上 0 · 半判(射程外) 0 · 没日志 0 · 抽不出行名 15 · 链没记分母 0 · 重名套件 3 · 同名多声明套件 0
+  | SELFTEST rc=0 [自检门] r129a 相对 r128a 没有新格 ⇒ 这一串没有要补的自检(这是"没有新增",不是"没跑到")
+  | TEETH rc=0 [r129a 回执分桶] 日志 73 份 · 分桶之和 73(平)
+- 归因:门 rc=0,台账 r129a_attrib.txt(红尾 1 条 ⇒ 每条一行,类∈过期期望/没跑到/产品退化/量具)
+- 本轮交付的产品改动:#362 设置面板「▸ 战绩与成就」补上程序可读的展开状态 ——
+  markup 加 aria-expanded="false" + aria-controls="more";JS 新增唯一写者 syncMore()
+  (按 .open 类写),点击处理器与 renderSettings() 都调它。行为一个像素没动。
+  改前快照 0d79a59dfed8892c ⇒ 三拍 aria=null、4/5 行发火;改后 71f615d7d493327a ⇒ false/true/false、0/5。
+  verify62 新增 A4b + S24/S25/S26(主 0/19、自检 0/30),A7 台账 8→10。
+  产物 6,666,653 → 6,667,160(+507 B),两次 build 同 sha;verify7/42/39/72/73 预跑全绿。

@@ -518,7 +518,7 @@ var SPIN0=(function(){var e=el('bootSpin');return e?e.textContent:''})();
       <div class="badge" id="bestRush">⏱ 挑战最佳 0</div>
       <div class="badge" id="bestDaily">📅 今日 未玩</div>
     </div>
-    <button class="linkbtn" id="moreBtn">▸ 战绩与成就</button>
+    <button class="linkbtn" id="moreBtn" aria-expanded="false" aria-controls="more">▸ 战绩与成就</button>
     <div id="more">
       <p class="mini" id="statline"></p>
       <div id="achv"></div>
@@ -2992,7 +2992,11 @@ $('cont').onclick=()=>{audioUnlock();if(AC&&AC.state==='suspended')AC.resume();c
 function moreSummary(){const got=ACHV.filter(a=>stats.achv[a.id]).length;
  return ($('more').classList.contains('open')?'▾ ':'▸ ')+'成就 '+got+'/'+ACHV.length+
   ' · 最近 '+(stats.history||[]).length+' 局';}
-$('moreBtn').onclick=()=>{$('more').classList.toggle('open');
+/* #362:折叠按钮的展开状态要有程序可读的通道(视觉箭头不算 AT 状态);syncMore 是唯一写者,
+   renderSettings 也调它 —— 面板重开时 .open 类可能还在。 */
+function syncMore(){const m=$('more'),b=$('moreBtn');if(!m||!b)return;
+ b.setAttribute('aria-expanded',String(m.classList.contains('open')));}
+$('moreBtn').onclick=()=>{$('more').classList.toggle('open');syncMore();
  $('moreBtn').textContent=moreSummary();setTimeout(cardFade,360);};
 function initHowto(){const touch=matchMedia('(pointer:coarse)').matches;
  $('howto').innerHTML=(touch?
@@ -3094,6 +3098,7 @@ $('pmenu').onclick=toMenu;
 
 /* ---------- 设置面板 ---------- */
 function renderSettings(){
+ syncMore();   /* #362:每次开面板都按 .open 类重对齐 aria-expanded(状态只有一个写者) */
  $('sMaster').value=CFG.master;$('sSfx').value=CFG.sfx;$('sAmb').value=CFG.amb;
  for(const [o,i,k] of [['sMasterV','sMaster','master'],['sSfxV','sSfx','sfx'],['sAmbV','sAmb','amb']]){const t=CFG[k]+'%';$(o).textContent=t;$(i).setAttribute('aria-valuetext',t);} // #275 单位 + #281:读屏念滑块报的是裸数,单位要进 aria-valuetext;值与 AT 文案由同一个 t 产出,不许各算各的。#288 一次按键只有一个主人:同拍 <output>(隐含 role=status)也念这个数 ⇒ 读屏听到两遍,所以三块 output 在 _shell.html 里写了 aria-live="off",念的只剩滑块这一条(它带 label 主语 + 这里的单位);证人=s285 探针两臂:板上通道 3/3→0/3,而滑块行仍印 name/value
  for(const p of [['sQ','quality'],['sR','reduce']])
