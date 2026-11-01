@@ -244,6 +244,9 @@
     transform-origin:left center}
   .mini{font-size:11px;opacity:.55;margin-top:8px;letter-spacing:.5px}
   #achv{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-top:12px}
+  /* #364-b:牌面声明成按钮后,[role=button] 会被 verify12 的"触屏 44px"扫到 —— 触屏给足 44px 命中区;
+     鼠标/桌面保持紧凑的成就墙(24px 高,满足 2.5.8 的 24×24)。 */
+  @media (pointer:coarse){#achv .ach{min-height:44px;display:inline-flex;align-items:center}}
   .ach{font-size:10.5px;padding:4px 10px;border-radius:999px;letter-spacing:1px;
     border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);opacity:.45}
   .ach.on{border-color:rgba(255,215,94,.45);background:rgba(255,215,94,.13);

@@ -1873,10 +1873,12 @@ function renderAchv(){const el=$('achv');
   //   (isFinite(true)===true 会把 1970/1/1 写上去),216 的 NaN 兼容思路同族
   const v=stats.achv[a.id],dd=(on&&typeof v==='number'&&v>1e12)?new Date(v):null;
   const ds=dd?' · '+(dd.getMonth()+1)+'/'+dd.getDate():'';
-  return `<span class="ach${on?' on':''}" title="${a.name} · 已 ${p}/${a.need}${a.unit}" data-d="${a.name}:已 ${p}/${a.need}${a.unit}">${nw?'<b style="color:#2c5d1f;background:#ffd75e;border-radius:6px;padding:0 4px;font-size:9px;margin-right:4px;vertical-align:1px">NEW</b>':''}${a.icon} ${a.name}<em>${p}/${a.need}${a.unit}${ds}</em></span>`;}).join('');
+  return `<span class="ach${on?' on':''}" role="button" tabindex="0" title="${a.name} · 已 ${p}/${a.need}${a.unit}" data-d="${a.name}:已 ${p}/${a.need}${a.unit}">${nw?'<b style="color:#2c5d1f;background:#ffd75e;border-radius:6px;padding:0 4px;font-size:9px;margin-right:4px;vertical-align:1px">NEW</b>':''}${a.icon} ${a.name}<em>${p}/${a.need}${a.unit}${ds}</em></span>`;}).join('');
  /* 点按详情(#361):进度详情只在 title 悬停属性里,触屏没有 hover 永远看不到 —— 牌面点按即弹提示;
     委托到容器,renderAchv 重建 DOM 也不用重复绑 */
  el.onclick=e=>{const t=e.target.closest('.ach');if(t&&t.dataset.d)showHint('🏅 '+t.dataset.d,1600);};
+ /* #364:牌面原来只有 onclick(触屏/鼠标能点),键盘到不了也按不动 ⇒ role=button + tabindex=0,Enter/Space 走同一条 showHint。 */
+ el.onkeydown=e=>{if(e.key!=='Enter'&&e.key!==' ')return;const t=e.target.closest('.ach');if(t&&t.dataset.d){e.preventDefault();showHint('🏅 '+t.dataset.d,1600);}};
  if($('moreBtn'))$('moreBtn').textContent=moreSummary();}
 function checkAchv(){let newly=null;
  for(const a of ACHV){if(!stats.achv[a.id]&&a.test(stats)){
@@ -2363,7 +2365,8 @@ function moreSummary(){const got=ACHV.filter(a=>stats.achv[a.id]).length;
 /* #362:折叠按钮的展开状态要有程序可读的通道(视觉箭头不算 AT 状态);syncMore 是唯一写者,
    renderSettings 也调它 —— 面板重开时 .open 类可能还在。 */
 function syncMore(){const m=$('more'),b=$('moreBtn');if(!m||!b)return;
- b.setAttribute('aria-expanded',String(m.classList.contains('open')));}
+ b.setAttribute('aria-expanded',String(m.classList.contains('open')));
+ if('inert' in m)m.inert=!m.classList.contains('open');}
 $('moreBtn').onclick=()=>{$('more').classList.toggle('open');syncMore();
  $('moreBtn').textContent=moreSummary();setTimeout(cardFade,360);};
 function initHowto(){const touch=matchMedia('(pointer:coarse)').matches;

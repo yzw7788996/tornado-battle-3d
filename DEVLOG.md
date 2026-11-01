@@ -3013,3 +3013,83 @@ HUD 分数板在屏幕上只有一个裸数字,读屏念出来也是裸数,前�
   改前快照 0d79a59dfed8892c ⇒ 三拍 aria=null、4/5 行发火;改后 71f615d7d493327a ⇒ false/true/false、0/5。
   verify62 新增 A4b + S24/S25/S26(主 0/19、自检 0/30),A7 台账 8→10。
   产物 6,666,653 → 6,667,160(+507 B),两次 build 同 sha;verify7/42/39/72/73 预跑全绿。
+
+## 第 136 轮:#364 成就牌补上键盘通道(Enter/Space 出同一条详情)+ 收起时 #more 挂 inert;verify62 加 A4c 与三条反向臂
+
+- **产品(已落盘,未提交;等 r130a)**:`_game3d.js` 三处 —— ①`renderAchv` 的牌面模板加 `role="button" tabindex="0"`(名字由牌面文字供,含门槛数);②`#achv` 的委托处理器补 `keydown`:Enter/Space 走与点击同一条 `showHint`(`preventDefault`,逐字同文案);③`syncMore()` 按 `.open` 给 `#more` 写 `inert` —— 收起时牌面不可聚焦、也不进 AT,和 `aria-expanded=false` 对齐。
+  产物 **6,667,160 → 6,667,567(+407 B)**,sha **71f615d7d493327a → 5b057817b451d805**,两次 `python build.py` 同 sha。
+- **为什么**:成就牌是 `<span>` + 委托 `onclick` —— 鼠标/触屏能点出"已 X/门槛",键盘既到不了也按不动(WCAG 2.1.1);而收起时(max-height:0)这些内容仍在 AT 树里,与上一轮刚立的 `aria-expanded=false` 自相矛盾。这条 `inert` 不受 #363 那条"主线程被堵时离散属性不翻"的限制:它由用户点按驱动,主线程一定是活的。
+- **发火证人(`r136_364_leg.log`,rc=0)**:改前 `harness/index.pre-r136.html`(现读 sha=`71f615d7d493327a`)⇒ `role=null tabindex=null`、展开态 `focus=false`、Enter/Space 都没出详情、**4/6 行发火**(R1/R2/R3/R6);改后 ⇒ `role="button" tabindex="0"`、展开 `focus=true`、Enter 出「🏅 初级饕餮:已 0/50件」、Space 出「🏅 饕餮之王:已 0/200件」、收起态 `#more.inert=true` 且不可聚焦、**0/6**。反向条件同量:鼠标点击仍出「🏅 弑塔者:已 0/1次通关」。
+- **量具口径**:读 `#hint` 时行里带的 `opacity` 不作为判据 —— `#hint` 的淡入是 transition,无帧时计算值停在 0(与上一轮 max-height 同一类),**文案**才是契约(两条键路径的文案逐字正确)。
+- **常驻守卫 verify62**:新增 **A4c**(模板 role/tabindex、委托 keydown、syncMore 的 inert,三问一体;`judgeAchv` 只写一份)+ **S27/S28/S29** 三条反向臂;现读主判决 **0/20**、自检 **0/33**。
+- **上一串 r129a 的量具账(本串一并登记)**:唯一红尾 **verify11 Q5 = 量具** —— `cardAgain` 在 `grew` 之后立即读,而 `grew` 只证"导航发生了"(`__rc` 在新文档开头就 +1),重载后的错误卡要等启动抛错后 `say()` 才画出来;同一棵树前三串都是 `true`,这次读到 `false` 是竞态。改成等 `#bootRetry`(≤15s)再判;复跑 **Q5 绿**(grew/cardAgain 都 true)、改后红 无(`r129a_v11_rerun.log`),台账 `r129a_attrib.txt` 类=量具。
+  另外 r129a 的 **NAMECHECK rc=0**(上一轮修的 selftest 掩码在链上首次生效)、verify18 0/8、verify20 0/4(同城中位硬化后)、verify62 0/19。
+- **挂链前定点预跑**:verify7 0/13(改前 12/13)· verify42 0/7 · verify39 0/6 · verify72 0/4(改前 3/4)· verify73 0/7(改前 4/7)。
+- **并发死锁与量具修(本轮起跑时真咬到)**:r130a 第一次起跑被 `CHAIN-BUSY` 拒(5 层 `r136_watch3.sh`)——并发车道的**只读看守**在等我这条链 close,而我的链被"任何 .sh 都算占着浏览器"的探针挡住,两边互等(对方的看守上限 3 小时)。根因是 `_p71_chainprobe.sh` 把**所有**本目录 .sh 都数成浏览器占用;修法:按名字排除 `*_watch*.sh`(真链一律 `rNNNa.sh`,浏览器腿仍是 verifyN/probeN .mjs,不受影响),并写明射程。探针自检现读 0 个占用后起跑;对方的看守随后看到锁、再看到 close 就会自己退出(它等的正是这个信号)。
+- **同轮第三件(被链抓到、当场修):触屏 44px 命中区** —— r130a 链的 verify12 T1 / verify23 W4 扫到 `.ach=24px`。并发车道的 `r130a_clipface` 现场把成因拆成两半:①菜单态那一扫的是**收起 #more 里被裁掉的牌**(clientH=0、clipped 16/16、inert=true、命中自身 0/16)⇒ 扫描器把裁剪元素算成手指目标的**假阳性**;②真点开 #more 后同一组牌 **命中 16/16、高 24px** ⇒ 这是真实的手指目标,低于本项目 44px 触屏契约(但仍满足 WCAG 2.2 AA 的 24×24)。
+  本车道只动真缺陷:给**粗指针**加 `@media (pointer:coarse){#achv .ach{min-height:44px;display:inline-flex;align-items:center}}`(桌面/鼠标保持紧凑的成就墙)。证据:改后 verify12 **T1/T7 绿**(扫到 12 个、全部 ≥44,`r136_v12_after364b.log`)、verify23 **W4 绿**(红 0/5,`r136_v23_after364b.log`)。
+  扫描器那一半(裁剪祖先要跳过)留给并发车道的 `r130a_clipfix`(21:38 备好、尚未落地);**展开态的 44px 目前没有常驻行守着**(候选)。产物 6,667,567 → **6,667,873**(+306 B),sha 5b057817b451d805 → **173b0261664d7b6b**,两次 build 同 sha。
+- **链的账**:r130a(钉 5b057817b451d805)73 套、红尾 verify12+verify23(上面那条);DONE 之后 13s 工作树被 364-b 换成 173b026 ⇒ **本串按 sha 不等不提交**(并发车道已把这条写进 `r136_chain_result.md`);由本车道在 173b026 上另起 **r131a** 复验后再 close。
+- **量具自纠(链上抓到)**:r131a 的 verify62 **A7** 读到 `role=1` vs 台账 0 —— 成因是 #364-b 的 CSS **注释**里写了字面量 `[role=button]`,而 A7 用未掩码的 `_shell.html` 数 `role=`(把散文当标记)。改成数**掩码后的 markup**(注释整段变空格;S7 的注入计数同步),现读 main **0/20**、自检 **0/33**(`r131a_v62_aftermask.log` / `_selftest.log`)。台账仍是 10/0,门槛没动。
+- 边界:`index.pre-r136.html`、`_game3d.js.pre-r136p364`、`_shell.html.pre-r137p364b` 是量具快照,留在 harness,不提交也不删;`r136_*.mjs`/`r137_*.mjs` 与 `verify62.mjs` 是 harness 文件;`manifest.json` 没动。
+
+## r130a 结链成绩(第 136 轮 · 全量回归 · 由本车道从 r130a_status.txt 逐字摘录)
+
+- 套件行(带 rc=)**73** · 非零 rc **2** 条:verify12 verify23 · 缺席点名 **5** 套/共 **5** 格(verify2/3/6/8/55,各 1 格)
+- 链头钉 sha=`5b057817b451d805` · 链内 `sha0=sha1=5b057817b451d805 same=yes` · 仓库 HEAD=37383b6
+- **本串没有由本车道提交**:链结后 22:05:28 并发车道把 #364-b(触屏 44px 成就牌)落进工作树并重建 ⇒ 在制 sha=`173b0261664d7b6b` ≠ 钉。按 r114a 的口径,close 正确拒绝 sha 不等;提交留给换树的车道在它自己验完 `173b026` 之后做。
+- 本轮守卫(现读台账原文):
+  `verify62 rc=0 | 新格式[红 0/20] | 缺席格=0 | 形状[新格式] | 汇总[0/20 新格式 nm=0]`
+  `verify7 rc=0 | 新格式[红 0/13] | 缺席格=0 | 形状[老双臂] | 老格式[改前红 12/13] | 汇总[0/13 老双臂 nm=0]`
+  `verify42 rc=0 | 新格式[红 0/7] | 缺席格=0 | 形状[新格式] | 汇总[0/7 新格式 nm=0]`
+  `verify39 rc=0 | 新格式[红 0/6] | 缺席格=0 | 形状[守卫行] | 汇总[0/6 守卫行 nm=0]`
+  `verify72 rc=0 | 新格式[红 0/4] | 缺席格=0 | 形状[老双臂] | 老格式[改前红 3/4] | 汇总[0/4 老双臂 nm=0]`
+  `verify73 rc=0 | 新格式[红 0/7] | 缺席格=0 | 形状[老双臂] | 老格式[改前红 4/7] | 汇总[0/7 老双臂 nm=0]`
+  `verify18 rc=0 | 新格式[红 0/8] | 缺席格=0 | 形状[新格式] | 汇总[0/8 新格式 nm=0]`
+  `verify20 rc=0 | 新格式[红 0/4] | 缺席格=0 | 形状[新格式] | 汇总[0/4 新格式 nm=0]`
+- 链尾门(现读台账原文):
+  - ROWCOV rc=0 [棘轮 r130a] 文件 73 · 判到 40(COVERED 40 / BLIND 0) · 不适用 33 · 没跑到 0
+  - NAMECHECK rc=0 套件 73 · 可判 58/73 · 齐 58 · 有行没出现 0 · 名字在却没印行 0
+  - SELFTEST rc=0(相对 r129a 没有新格)· TEETH rc=0(73 份 · 分桶和 73)· PRODCHECK rc=0 · 复读者 rc=0(判空 0)
+  - CMPCHAIN rc=1 只作信息:verify11 1→0、verify12 0→1、verify23 0→1、verify62 红 0/19→0/20、verify2/8 各多 1 格缺席
+- 红尾归因:门 rc=0,台账 `r130a_attrib.txt` 2 行(verify12/verify23,类=**量具**)。
+  两条是同一事实的两次编码:#364 把 16 枚成就牌声明成 `role=button` 后,verify12 T1 / verify23 W4 把菜单**收起态** `#more`(`max-height:0;overflow:hidden;clientH=0;inert=true`)里的布局盒当成手指目标。
+  两臂动态证据 `r130a_clipface.log`:收起态 clipped=16/16、inVP=0/16、命中自身 0/16;真点 `#moreBtn` 后同一组牌 clipped=0/16、inVP=16/16、命中 16/16、高度 24px。
+- 本轮交付的产品改动(#364,本串验的树):成就牌 `role=button/tabindex=0` + `#achv` 委托 `keydown`(Enter/Space 同一条 `showHint`)+ `syncMore()` 收起时写 `inert`;产物 6,667,160 → 6,667,567;改前 4/6 发火、改后 0/6。
+- 交接:量具修正 `_clipface.mjs` + `r130a_clipfix.mjs` 已干验(自检 10/10)、**未落盘**;等并发车道的链结 + close 后在干净窗口落(它只改 harness,不动产品)。
+
+
+## r131a 结链成绩(第 135 轮 · 全量回归 · 由 r131a_tail.sh 从 r131a_status.txt 逐字摘录)
+- 套件行(带 rc=)**73** · 非零 rc **1** 条:verify62  · 缺席点名 **5** 套/共 **5** 格
+- 链头钉 sha=`173b0261664d7b6b` · 收尾时在制 sha=`173b0261664d7b6b` · 仓库 HEAD=37383b6(本串验的就是这棵树)
+- 本轮守卫(现读台账原文):
+  `verify62 rc=1 | 新格式[红 1/20] | 缺席格=0 | 形状[新格式] | 老格式[] | 汇总[1/20 新格式 nm=0]`
+  `verify7 rc=0 | 新格式[红 0/13] | 缺席格=0 | 形状[老双臂] | 老格式[改后红: 无  |  改前红 12/13] | 汇总[0/13 老双臂 nm=0]`
+  `verify42 rc=0 | 新格式[红 0/7] | 缺席格=0 | 形状[新格式] | 老格式[] | 汇总[0/7 新格式 nm=0]`
+  `verify39 rc=0 | 新格式[红 0/6] | 缺席格=0 | 形状[守卫行] | 老格式[] | 汇总[0/6 守卫行 nm=0]`
+  `verify72 rc=0 | 新格式[红 0/4] | 缺席格=0 | 形状[老双臂] | 老格式[改后红: 无  |  改前红 3/4] | 汇总[0/4 老双臂 nm=0]`
+  `verify73 rc=0 | 新格式[红 0/7] | 缺席格=0 | 形状[老双臂] | 老格式[改后红: 无  |  改前红 4/7] | 汇总[0/7 老双臂 nm=0]`
+  `verify18 rc=0 | 新格式[红 0/8] | 缺席格=0 | 形状[新格式] | 老格式[] | 汇总[0/8 新格式 nm=0]`
+  `verify20 rc=0 | 新格式[红 0/4] | 缺席格=0 | 形状[新格式] | 老格式[] | 汇总[0/4 新格式 nm=0]`
+- 链尾门(现读台账原文):
+  | 复读者 rc=0 摘要:套件判到=73 / 判空=0(空里:没跑到 0、空跑/崩 0) 两轮都没跑到=无(覆盖无洞) 
+  | PRODCHECK bad=0 rc=0
+  | PRODCHECK rc=0(四件产物存在/非空/形状 + 套件日志数;见上面 PROD-* 各行)
+  | CMPCHAIN r130a_status.txt(74 套行)→ r131a_status.txt(74 套行)
+  | CMPCHAIN rc=1 只作信息入账(链间套件面本来会长短;差异逐条人工归因,不并进总判决)
+  | ROWCOV rc=0 [棘轮 r131a] 文件 73 · 判到 40(COVERED 40 / BLIND 0) · 不适用 33 · 没跑到 0 · 没交分母 0 · 形状不认 0
+  | NAMECHECK rc=0 [按名字对账 r110_namecheck] 前缀=r131a 套件 73 · 可判 58/73(这把尺子的真实覆盖面,不许读成"全量对账") · 齐 58(其中靠扣 NOT MEASURED 对平 1、靠重名样本对平 1) · 有行没出现 0 · 名字在却没印行 0 · 分母对不上 0 · 半判(射程外) 0 · 没日志 0 · 抽不出行名 15 · 链没记分母 0 · 重名套件 3 · 同名多声明套件 0
+  | SELFTEST rc=0 [自检门] r131a 相对 r130a 没有新格 ⇒ 这一串没有要补的自检(这是"没有新增",不是"没跑到")
+  | TEETH rc=0 [r131a 回执分桶] 日志 73 份 · 分桶之和 73(平)
+- 归因:门 rc=0,台账 r131a_attrib.txt(红尾 1 条 ⇒ 每条一行,类∈过期期望/没跑到/产品退化/量具)
+- 本轮交付的产品改动:#364 成就牌补上键盘通道,并把收起时的内容移出 AT ——
+  renderAchv 的牌面模板加 role="button" tabindex="0";#achv 委托处理器补 keydown,
+  Enter/Space 走与点击同一条 showHint(逐字同文案);syncMore() 按 .open 给 #more 写 inert。
+  同轮被链抓到并修好的第二件:#364-b 粗指针下给成就牌 44px 命中区(@media (pointer:coarse)),
+  桌面保持紧凑 —— r130a 的 verify12 T1 / verify23 W4 扫到 .ach=24px 后拆成两半:
+  收起态是扫描器的假阳性(裁剪+inert,并发车道 clipface 已证),展开态 24px 是真缺陷。
+  改前快照 71f615d7d493327a ⇒ 牌面 role/tab=null、展开不可聚焦、键路径无详情(4/6 发火);
+  改后 173b0261664d7b6b ⇒ 展开可聚焦、Enter/Space 详情逐字正确、收起 inert=true(0/6);
+  verify12 T1/T7 绿(12 个全 ≥44)、verify23 W4 绿(0/5)。
+  verify62 新增 A4c + S27/S28/S29(主 0/20、自检 0/33)。
+  产物 6,667,160 → 6,667,873(+713 B),两次 build 同 sha;verify12/23/7/42/39/72/73 预跑全绿。
