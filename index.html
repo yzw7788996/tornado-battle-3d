@@ -253,6 +253,9 @@
     border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);opacity:.62}
   .ach.on{border-color:rgba(255,215,94,.45);background:rgba(255,215,94,.13);
     color:#ffd75e;opacity:1;font-weight:700}
+  /* #366:键盘聚焦要看得见 —— UA 默认圈在 .62 透明度的暗药丸上偏细,且 #more{overflow:hidden} 会裁掉外扩的描边。
+     改成内缩 2px 的高对比圈:键盘可见(:focus-visible),鼠标点击不点亮。 */
+  #achv .ach:focus-visible{outline:2px solid #ffd75e;outline-offset:-2px}
   /* 牌上那串门槛数字(50 件 / 25 连 …):次要字重,别抢走成就名 */
   .ach em{font-style:normal;font-weight:600;margin-left:5px;letter-spacing:0}
   .badge{display:inline-flex;align-items:center;gap:6px;margin-top:12px;
